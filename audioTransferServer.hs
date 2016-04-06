@@ -3,15 +3,19 @@ import Network.Socket
 import Network.BSD
 import Data.List
 import Control.Concurrent
-import Control.Concurrent.MVar
+import Control.Concurrent.STM
 import System.IO
+import Control.Monad
+import Authentication
+import AudioTransferTypes
+
 
 type HandlerFunc = SockAddr -> String -> IO ()
 
-serveLog :: String              -- ^ Port number or name; 514 is default
+openConnection :: String              -- ^ Port number or name; 514 is default
          -> HandlerFunc         -- ^ Function to handle incoming messages
          -> IO ()
-serveLog port handlerfunc = withSocketsDo $
+openConnection port handlerfunc = withSocketsDo $
     do -- Look up the port.  Either raises an exception or returns
        -- a nonempty list.
        addrinfos <- getAddrInfo
@@ -29,42 +33,52 @@ serveLog port handlerfunc = withSocketsDo $
        -- of 5 connection requests waiting to be accepted.
        listen sock 5
 
-       -- Create a lock to use for synchronizing access to the handler
-       lock <- newMVar ()
-
+       -- Create user data structure
+       users <- newUsersSTM
        -- Loop forever waiting for connections.  Ctrl-C to abort.
-       procRequests lock sock
+       procRequests users sock
 
     where
           -- | Process incoming connection requests
-          procRequests :: MVar () -> Socket -> IO ()
-          procRequests lock mastersock =
+          procRequests :: Users -> Socket -> IO ()
+          procRequests users mastersock =
               do (connsock, clientaddr) <- accept mastersock
-                 handle lock clientaddr
-                    "syslogtcpserver.hs: client connnected"
-                 forkIO $ procMessages lock connsock clientaddr
-                 procRequests lock mastersock
+                 handlerfunc clientaddr "Client connnected"
+                 forkIO $ procMessages users connsock clientaddr
+                 procRequests users mastersock
 
           -- | Process incoming messages
-          procMessages :: MVar () -> Socket -> SockAddr -> IO ()
-          procMessages lock connsock clientaddr =
+          procMessages :: Users -> Socket -> SockAddr -> IO ()
+          procMessages users connsock clientaddr =
               do connhdl <- socketToHandle connsock ReadMode
                  hSetBuffering connhdl LineBuffering
                  messages <- hGetContents connhdl
-                 mapM_ (handle lock clientaddr) (lines messages)
+                 mapM_ (handle users clientaddr) (lines messages)
                  hClose connhdl
-                 handle lock clientaddr
-                    "syslogtcpserver.hs: client disconnected"
+                 plainHandler clientaddr "Client disconnected"
 
-          -- Lock the handler before passing data to it.
-          handle :: MVar () -> HandlerFunc
-          -- This type is the same as
-          -- handle :: MVar () -> SockAddr -> String -> IO ()
-          handle lock clientaddr msg =
-              withMVar lock
-                 (\a -> handlerfunc clientaddr msg >> return a)
+          handle :: Users -> SockAddr -> String -> IO()
+          handle users clientaddr message = do
+            let msg = words message
+            let messageType = head msg
+            let usernm = msg !! 1
+            let password = msg !! 2
+            loggedIn <- atomically $ isLoggedIn usernm users
+            when (messageType == "register") $
+              register usernm password users
+            when (messageType == "login") $
+              logInUser usernm password users
+            when (messageType == "logout") $
+              logOutUser usernm users
+            when (messageType == "data" && loggedIn) $
+              plainHandler clientaddr message
+
 
 -- A simple handler that prints incoming packets
 plainHandler :: HandlerFunc
 plainHandler addr msg =
     putStrLn $ "From " ++ show addr ++ ": " ++ msg
+--logInUser "martinho" "soufixei" users
+main = do
+  users <- newUsersSTM
+  openConnection "10514" plainHandler
