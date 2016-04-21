@@ -11,11 +11,19 @@ data User = User { getUsername :: String
                  } deriving (Eq, Ord, Show)
 
 newtype Users = Users (TVar (DM.Map String User))
+newtype UserConnected = UserConnected (TVar (Maybe String))
 
 registerSTM :: User -> Users -> STM ()
 registerSTM user (Users usersSTM) = do
   users <- readTVar usersSTM
   writeTVar usersSTM $ DM.insert (getUsername user) user users
+
+deleteUser (UserConnected userSTM) (Users usersSTM) = atomically $ do
+  user <- readTVar userSTM
+  users <- readTVar usersSTM
+  when (isJust user) $ do
+    writeTVar usersSTM $ DM.delete (fromJust user) users
+    writeTVar userSTM Nothing
 
 register username password users =
     atomically $ registerSTM (User username password False) users
@@ -25,7 +33,8 @@ isRegistered username (Users usersSTM) = do
   let user = DM.lookup username users
   return $ isJust user
 
-isLoggedIn username (Users usersSTM) = do
+isLoggedInSTM :: String -> Users -> STM Bool
+isLoggedInSTM username (Users usersSTM) = do
   users <- readTVar usersSTM
   let user = DM.lookup username users
   let res = isJust user && (isConnected . fromJust $ user)
@@ -43,17 +52,34 @@ switchUserLogStatus username (Users usersSTM) = do
   let loggedUser =  User username (getPassword user) (not (isConnected user))
   writeTVar usersSTM $ DM.insert username loggedUser users
 
-logInUser username password users = atomically $ do
-  userLogged <- isLoggedIn username users
+logInUserSTM username (UserConnected userConnected) users = do
+  switchUserLogStatus username users
+  writeTVar userConnected $ Just username
+
+logInUser username password userConnected users = atomically $ do
+  userLogged <- isLoggedInSTM username users
   passwordValid <- isPassValid username password users
   let canLogin = not userLogged && passwordValid
-  when canLogin (switchUserLogStatus username users)
+  when canLogin (logInUserSTM username userConnected users)
 
-logOutUser username users = atomically $ do
-  userLogStatus <- isLoggedIn username users
-  when userLogStatus (switchUserLogStatus username users)
+logOutUser (UserConnected userSTM) users = atomically $ do
+  user <- readTVar userSTM
+  when (isJust user) $ do
+    let username = fromJust user
+    userLogStatus <- isLoggedInSTM username users
+    switchUserLogStatus (fromJust user) users
+    writeTVar userSTM Nothing
 
-newUsersSTM :: IO Users
-newUsersSTM = do
+newUsers :: IO Users
+newUsers = do
   t <- newTVarIO DM.empty
   return (Users t)
+
+newUserConnected :: IO UserConnected
+newUserConnected = do
+  t <- newTVarIO Nothing
+  return (UserConnected t)
+
+isLoggedIn (UserConnected userConnectedSTM) = do
+  userConnected <- readTVar userConnectedSTM
+  return $ isJust userConnected

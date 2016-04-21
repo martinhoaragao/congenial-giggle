@@ -34,7 +34,7 @@ openConnection port handlerfunc = withSocketsDo $
        listen sock 5
 
        -- Create user data structure
-       users <- newUsersSTM
+       users <- newUsers
        -- Loop forever waiting for connections.  Ctrl-C to abort.
        procRequests users sock
 
@@ -53,25 +53,22 @@ openConnection port handlerfunc = withSocketsDo $
               do connhdl <- socketToHandle connsock ReadMode
                  hSetBuffering connhdl LineBuffering
                  messages <- hGetContents connhdl
-                 mapM_ (handle users clientaddr) (lines messages)
+                 userConnected <- newUserConnected
+                 mapM_ (handle users userConnected clientaddr) (lines messages)
                  hClose connhdl
                  plainHandler clientaddr "Client disconnected"
 
-          handle :: Users -> SockAddr -> String -> IO()
-          handle users clientaddr message = do
+          handle :: Users -> UserConnected -> SockAddr -> String -> IO()
+          handle users userConnected clientaddr message = do
             let msg = words message
-            let messageType = head msg
-            let usernm = msg !! 1
-            let password = msg !! 2
-            loggedIn <- atomically $ isLoggedIn usernm users
-            when (messageType == "register") $
-              register usernm password users
-            when (messageType == "login") $
-              logInUser usernm password users
-            when (messageType == "logout") $
-              logOutUser usernm users
-            when (messageType == "data" && loggedIn) $
-              plainHandler clientaddr message
+            let [messageType, usernm, password] = take 3 msg
+            loggedIn <- atomically $ isLoggedIn userConnected
+            case messageType of
+              "register"  -> register usernm password users
+              "login"     -> logInUser usernm password userConnected users
+              "delete"    -> when loggedIn $ deleteUser userConnected users
+              "logout"    -> when loggedIn $ logOutUser userConnected users
+              "data"      -> when loggedIn $ plainHandler clientaddr message
 
 
 -- A simple handler that prints incoming packets
@@ -79,6 +76,5 @@ plainHandler :: HandlerFunc
 plainHandler addr msg =
     putStrLn $ "From " ++ show addr ++ ": " ++ msg
 --logInUser "martinho" "soufixei" users
-main = do
-  users <- newUsersSTM
-  openConnection "10514" plainHandler
+
+main = openConnection "10514" plainHandler

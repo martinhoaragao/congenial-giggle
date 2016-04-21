@@ -86,7 +86,7 @@ test3 = do
 
 
 main = do
-  connection <- openConnection "localhost" "10514" "tcptest"
+  connection <- openConnection "127.0.0.1" "10514" "tcptest"
   forever $ do
     text <- getLine
     audioTransfer connection text
