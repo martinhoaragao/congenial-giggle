@@ -49,19 +49,19 @@ openConnection port handlerfunc = withSocketsDo $
 
           -- | Process incoming messages
           procMessages :: Users -> Socket -> SockAddr -> IO ()
-          procMessages users connSock clientAddr =
-              do messages <- getContents connSock
-                 userConnected <- newUserConnected clientAddr
-                 mapM_ (handle users userConnected connSock) (BS.lines messages)
-
-                 plainHandler clientAddr "Client disconnected"
+          procMessages users connSock clientAddr = do
+            userConnected <- newUserConnected clientAddr
+            forever $ do
+              messages <- recv connSock 512
+              mapM_ (handle users userConnected connSock) (BS.lines messages)
+            plainHandler clientAddr "Client disconnected"
 
           handle :: Users -> UserConnected -> Socket -> BS.ByteString -> IO()
           handle users userConnected connSock message = do
             let msg = words . BS.unpack $ message
             let [messageType, usernm, password] = take 3 msg
+            putStrLn $ messageType ++" " ++ usernm ++ " "++  password
             loggedIn <- isLoggedIn userConnected users
-            putStrLn ("UNPACKING WOOGOOO " ++ messageType)
             case messageType of
               "register"  -> register usernm password users
               "login"     -> logInUser usernm password userConnected users
@@ -70,12 +70,9 @@ openConnection port handlerfunc = withSocketsDo $
               "data"      -> when loggedIn $ deliver connSock message
 
 
-deliver :: Socket -> BS.ByteString -> IO ()
 deliver connSock msg = do
   let message = BS.pack . unwords . drop 1 . words . BS.unpack $ msg
-  putStrLn "I'm sending something"
   send connSock message
-  putStrLn "Sent"
 
   return ()
 

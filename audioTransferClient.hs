@@ -33,10 +33,7 @@ openConnection hostname port =
 
 printMessages sock =
   forever $ do
-    putStrLn "Im here"
-    messages <- getContents sock
-    putStrLn "Got something!"
-
+    messages <- recv sock 512
     BS.putStrLn messages
 
 
