@@ -4,7 +4,9 @@ import Prelude hiding (getContents)
 import qualified Data.ByteString.Lazy.Char8 as BS
 import Control.Concurrent
 import Control.Monad
+
 import Authentication
+import Connection
 --import AudioTransferTypes
 
 
@@ -51,9 +53,7 @@ openConnection port handlerfunc = withSocketsDo $
           procMessages :: Users -> Socket -> SockAddr -> IO ()
           procMessages users connSock clientAddr = do
             userConnected <- newUserConnected clientAddr
-            forever $ do
-              messages <- recv connSock 512
-              mapM_ (handle users userConnected connSock) (BS.lines messages)
+            handleMessagesFromSock connSock (handle users userConnected connSock)
             plainHandler clientAddr "Client disconnected"
 
           handle :: Users -> UserConnected -> Socket -> BS.ByteString -> IO()

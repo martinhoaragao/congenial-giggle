@@ -1,9 +1,12 @@
-import Control.Monad
 import Control.Concurrent
 import Network.Socket hiding (send, sendTo, recv, recvFrom)
 import Network.Socket.ByteString.Lazy
 import Prelude hiding (getContents)
 import qualified Data.ByteString.Lazy.Char8 as BS
+import Control.Monad
+import Control.Monad.Trans
+
+import Connection
 
 openConnection :: HostName      -- ^ Remote hostname, or 127.0.0.1
                -> String        -- ^ Port number or name; 514 is default
@@ -31,11 +34,7 @@ openConnection hostname port =
        -- Save off the socket
        return sock
 
-printMessages sock =
-  forever $ do
-    messages <- recv sock 512
-    BS.putStrLn messages
-
+printMessages sock = handleMessagesFromSock sock BS.putStrLn 
 
 audioTransfer sock msg = send sock (BS.pack msg)
 
