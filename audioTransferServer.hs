@@ -1,20 +1,18 @@
-import Data.Bits
-import Network.Socket
-import Network.BSD
-import Data.List
+import Network.Socket hiding (send, sendTo, recv, recvFrom)
+import Network.Socket.ByteString.Lazy
+import Prelude hiding (getContents)
+import qualified Data.ByteString.Lazy.Char8 as BS
 import Control.Concurrent
-import Control.Concurrent.STM
-import System.IO
 import Control.Monad
 import Authentication
-import AudioTransferTypes
+--import AudioTransferTypes
 
 
 type HandlerFunc = SockAddr -> String -> IO ()
 
 openConnection :: String              -- ^ Port number or name; 514 is default
-         -> HandlerFunc         -- ^ Function to handle incoming messages
-         -> IO ()
+               -> HandlerFunc         -- ^ Function to handle incoming messages
+               -> IO ()
 openConnection port handlerfunc = withSocketsDo $
     do -- Look up the port.  Either raises an exception or returns
        -- a nonempty list.
@@ -38,43 +36,52 @@ openConnection port handlerfunc = withSocketsDo $
        -- Loop forever waiting for connections.  Ctrl-C to abort.
        procRequests users sock
 
+       close sock
+
     where
           -- | Process incoming connection requests
           procRequests :: Users -> Socket -> IO ()
           procRequests users mastersock =
-              do (connsock, clientaddr) <- accept mastersock
-                 handlerfunc clientaddr "Client connnected"
-                 forkIO $ procMessages users connsock clientaddr
+              do (connsock, clientAddr) <- accept mastersock
+                 handlerfunc clientAddr "Client connnected"
+                 forkIO $ procMessages users connsock clientAddr
                  procRequests users mastersock
 
           -- | Process incoming messages
           procMessages :: Users -> Socket -> SockAddr -> IO ()
-          procMessages users connsock clientaddr =
-              do connhdl <- socketToHandle connsock ReadMode
-                 hSetBuffering connhdl LineBuffering
-                 messages <- hGetContents connhdl
-                 userConnected <- newUserConnected
-                 mapM_ (handle users userConnected clientaddr) (lines messages)
-                 hClose connhdl
-                 plainHandler clientaddr "Client disconnected"
+          procMessages users connSock clientAddr =
+              do messages <- getContents connSock
+                 userConnected <- newUserConnected clientAddr
+                 mapM_ (handle users userConnected connSock) (BS.lines messages)
 
-          handle :: Users -> UserConnected -> SockAddr -> String -> IO()
-          handle users userConnected clientaddr message = do
-            let msg = words message
+                 plainHandler clientAddr "Client disconnected"
+
+          handle :: Users -> UserConnected -> Socket -> BS.ByteString -> IO()
+          handle users userConnected connSock message = do
+            let msg = words . BS.unpack $ message
             let [messageType, usernm, password] = take 3 msg
-            loggedIn <- atomically $ isLoggedIn userConnected
+            loggedIn <- isLoggedIn userConnected users
+            putStrLn ("UNPACKING WOOGOOO " ++ messageType)
             case messageType of
               "register"  -> register usernm password users
               "login"     -> logInUser usernm password userConnected users
               "delete"    -> when loggedIn $ deleteUser userConnected users
               "logout"    -> when loggedIn $ logOutUser userConnected users
-              "data"      -> when loggedIn $ plainHandler clientaddr message
+              "data"      -> when loggedIn $ deliver connSock message
 
 
--- A simple handler that prints incoming packets
+deliver :: Socket -> BS.ByteString -> IO ()
+deliver connSock msg = do
+  let message = BS.pack . unwords . drop 1 . words . BS.unpack $ msg
+  putStrLn "I'm sending something"
+  send connSock message
+  putStrLn "Sent"
+
+  return ()
+
+-- A simple handler that prints incoming packets to server
 plainHandler :: HandlerFunc
 plainHandler addr msg =
     putStrLn $ "From " ++ show addr ++ ": " ++ msg
---logInUser "martinho" "soufixei" users
 
 main = openConnection "10514" plainHandler

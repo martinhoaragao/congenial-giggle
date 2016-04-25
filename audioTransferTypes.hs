@@ -4,10 +4,9 @@ import Data.Time.LocalTime
 data RegisterState = LogIn | LogOut
     deriving (Show)
 
-data UserConnection = UserConnection { username :: String
-                                     , ip       :: String
-                                     , port     :: String
-                                     } deriving (Show)
+data UserConnection = Maybe { ip       :: String
+                            , port     :: String
+                            } deriving (Show)
 
 data Register = Register { registerState     :: RegisterState
                          , userTPCConnection :: UserConnection
