@@ -35,3 +35,9 @@ data MessageType =
           | REQUEST                   -- ^ Request start of file transfer
           | DATA                      -- ^ File transfer
                     deriving (Eq, Ord, Show, Read, Enum)
+
+data Header = Header { getTipo :: Char
+                     , getSeqNum :: Int
+                     , getAckNum :: Int
+                     , getDataSize :: Int
+                     }
