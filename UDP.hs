@@ -12,6 +12,7 @@ import Network.BSD
 packetSize = headerSize + dataSize
 dataSize = 48
 headerSize = 0
+packetsPerRead = 1000
 
 {-
 TODO:
@@ -45,8 +46,9 @@ testSend = withSocketsDo $ do
     h <- socketToHandle sock ReadWriteMode 
     --sendFile ("in.txt") h
     putStrLn "Sending!"
+    --sendAudio ("in2.txt") h
     --sendAudio ("000001.mp3") h
-    sendAudio ("in.txt") h
+    sendAudio ("teste.mp3") h
     hClose h
     System.IO.putStrLn "Sent bytes!"
 
@@ -54,10 +56,10 @@ testSend = withSocketsDo $ do
 testReceive = withSocketsDo $ do
     sock <- getSockUDPServer
     h <- socketToHandle sock ReadWriteMode
-    input <- getAudio ("out.mp3") h
+    input <- getAudio ("out.m4a") h
     --getFile ("out.txt") h 
     --input <- BSL.hGet h 83
-    BSL.writeFile "out.txt" input
+    BSL.writeFile "out.mp3" input
     System.IO.putStrLn "Received and saved file!"
 
 main = do
@@ -99,12 +101,15 @@ getAudio file handle = do
 
 getPackets :: Handle -> Int -> IO [BSL.ByteString]
 getPackets handle 0 = return []
-getPackets handle n = do
-    t <- getPackets handle (n-1)
-    putStrLn ("Got packet no. " ++ (show n))
-    h <- BSL.hGet handle packetSize
+getPackets handle n | n <= packetsPerRead = do
+    putStrLn ("Got packets no. 0 - " ++ (show n))
+    h <- BSL.hGet handle (packetSize*n)
+    return ([h])
+getPackets handle n | n > packetsPerRead = do
+    t <- getPackets handle (n-packetsPerRead)
+    putStrLn ("Got packets no. " ++ (show (n-packetsPerRead)) ++ " - " ++ (show n))
+    h <- BSL.hGet handle (packetSize*packetsPerRead)
     return (t++[h])
-
 
 
 sendFile :: FilePath -> Handle -> IO ()

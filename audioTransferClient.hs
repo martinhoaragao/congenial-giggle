@@ -1,17 +1,18 @@
-import Network.Socket
-import System.IO
+import Control.Concurrent
+import Network.Socket hiding (send, sendTo, recv, recvFrom)
+import Network.Socket.ByteString.Lazy
+import Prelude hiding (getContents)
+import qualified Data.ByteString.Lazy.Char8 as BS
 import Control.Monad
+import Control.Monad.Trans
 
-data AudioTransferHandle =
-    AudioTransferHandle { slHandle :: Handle
-                        , slProgram :: String
-                        }
+import Connection
 
-openConnection :: HostName             -- ^ Remote hostname, or localhost
-        -> String               -- ^ Port number or name; 514 is default
-        -> String               -- ^ Name to log under
-        -> IO AudioTransferHandle      -- ^ Handle to use for logging
-openConnection hostname port progname =
+openConnection :: HostName      -- ^ Remote hostname, or 127.0.0.1
+               -> String        -- ^ Port number or name; 514 is default
+               -> IO Socket
+
+openConnection hostname port =
     do -- Look up the hostname and port.  Either raises an exception
        -- or returns a nonempty list.  First element in that list
        -- is supposed to be the best option.
@@ -28,38 +29,28 @@ openConnection hostname port progname =
        -- Connect to server
        connect sock (addrAddress serveraddr)
 
-       -- Make a Handle out of it for convenience
-       h <- socketToHandle sock WriteMode
+       forkIO $ printMessages sock
 
-       -- We're going to set buffering to BlockBuffering and then
-       -- explicitly call hFlush after each message, below, so that
-       -- messages get logged immediately
-       hSetBuffering h (BlockBuffering Nothing)
+       -- Save off the socket
+       return sock
 
-       -- Save off the socket, program name, and server address in a handle
-       return $ AudioTransferHandle h progname
+printMessages sock = handleMessagesFromSock sock BS.putStrLn 
 
-audioTransfer :: AudioTransferHandle -> String -> IO ()
-audioTransfer audioTransferh msg =
-    do hPutStrLn (slHandle audioTransferh) msg
-       -- Make sure that we send data immediately
-       hFlush (slHandle audioTransferh)
+audioTransfer sock msg = send sock (BS.pack msg)
 
-closeConnection :: AudioTransferHandle -> IO ()
-closeConnection audioTransferh = hClose (slHandle audioTransferh)
 
 test1 = do
-  connection <- openConnection "localhost" "10514" "tcptest"
+  connection <- openConnection "127.0.0.1" "10514"
   audioTransfer connection "register martinho 1234"
   audioTransfer connection "login martinho 1234"
   audioTransfer connection "data martinho I can now send message!"
   audioTransfer connection "logout martinho 1234"
   audioTransfer connection "data martinho Can I send message?"
   audioTransfer connection "data martinho YES!"
-  closeConnection connection
+  close connection
 
 test2 = do
-  connection <- openConnection "localhost" "10514" "tcptest"
+  connection <- openConnection "127.0.0.1" "10514"
   audioTransfer connection "register joaquim 1234"
   audioTransfer connection "data joaquim Message after register!"
   audioTransfer connection "logout joaquim 1234"
@@ -72,22 +63,22 @@ test2 = do
   audioTransfer connection "data joaquim Message after bad login!"
   audioTransfer connection "logout joaquim 4123"
   audioTransfer connection "data joaquim Message after bad logout!"
-  closeConnection connection
+  close connection
 
 test3 = do
-  connection <- openConnection "localhost" "10514" "tcptest"
+  connection <- openConnection "127.0.0.1" "10514"
   audioTransfer connection "register martinho 1234"
   audioTransfer connection "login martinho 1234"
   audioTransfer connection "data martinho I can now send message!"
   audioTransfer connection "logout martinho 1234"
   audioTransfer connection "data martinho Can I send message?"
   audioTransfer connection "data martinho YES!"
-  closeConnection connection
+  close connection
 
 
 main = do
-  connection <- openConnection "localhost" "10514" "tcptest"
+  connection <- openConnection "127.0.0.1" "10514"
   forever $ do
     text <- getLine
     audioTransfer connection text
-  closeConnection connection
+  close connection
