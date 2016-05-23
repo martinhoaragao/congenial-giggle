@@ -59,7 +59,7 @@ openConnection port handlerfunc = withSocketsDo $
           handle :: Users -> UserConnected -> Socket -> BS.ByteString -> IO()
           handle users userConnected connSock message = do
             let msg = words . BS.unpack $ message
-            let [messageType, usernm, password] = take 3 msg
+            let [messageType, usernm, file_name@password] = take 3 msg
             putStrLn $ messageType ++" " ++ usernm ++ " "++  password
             loggedIn <- isLoggedIn userConnected users
             case messageType of
@@ -68,7 +68,12 @@ openConnection port handlerfunc = withSocketsDo $
               "delete"    -> when loggedIn $ deleteUser userConnected users
               "logout"    -> when loggedIn $ logOutUser userConnected users
               "data"      -> when loggedIn $ deliver connSock message
+              "download"  -> when loggedIn $ sendFile connSock file_name
 
+sendFile connSock file_name = undefined 
+  --enviar "consult file_name" a todos os users, 
+  --juntar resultados, 
+  --enviar "response file_name wasFound nHosts host1 port1 host2 port2 host3 port3" a connSock
 
 deliver connSock msg = do
   let message = BS.pack . unwords . drop 1 . words . BS.unpack $ msg

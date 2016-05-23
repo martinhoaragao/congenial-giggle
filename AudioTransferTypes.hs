@@ -1,11 +1,26 @@
 module AudioTransferTypes where
 import Data.Time.LocalTime
 
+packetSize :: Int
+packetSize = headerSize + dataSize
+
+dataSize ::Int 
+dataSize = 48
+
+headerSize :: Int
+headerSize = 0
+
+packetsPerRead :: Int
+packetsPerRead = 1000
+
+defined_port :: String
+defined_port = "4242"
+
+
 data RegisterState = LogIn | LogOut
     deriving (Show)
 
-data UserConnection = Maybe { ip       :: String
-                            , port     :: String
+data UserConnection = UserConnection {ip_port :: Maybe (String, String)
                             } deriving (Show)
 
 data Register = Register { registerState     :: RegisterState
@@ -18,7 +33,7 @@ data ConsultRequest = ConsultRequest { group    :: String
 
 data ConsultResponse = ConsultResponse { wasFound          :: Bool
                                        , numberHosts       :: Int
-                                       , userUDPConnection :: UserConnection
+                                       , userUDPConnections :: [UserConnection]
                                        } deriving (Show)
 
 data ProbeResponse = ProbeResponse { time :: TimeOfDay

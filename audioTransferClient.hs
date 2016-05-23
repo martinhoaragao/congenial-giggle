@@ -5,8 +5,15 @@ import Prelude hiding (getContents)
 import qualified Data.ByteString.Lazy.Char8 as BS
 import Control.Monad
 import Control.Monad.Trans
+import System.Directory
+import Data.Maybe (fromJust)
+
 
 import Connection
+import AudioTransferTypes
+import UDP
+
+
 
 openConnection :: HostName      -- ^ Remote hostname, or 127.0.0.1
                -> String        -- ^ Port number or name; 514 is default
@@ -29,12 +36,46 @@ openConnection hostname port =
        -- Connect to server
        connect sock (addrAddress serveraddr)
 
-       forkIO $ printMessages sock
+       forkIO $ processMessages sock
 
        -- Save off the socket
        return sock
 
-printMessages sock = handleMessagesFromSock sock BS.putStrLn 
+processMessages sock = do
+  --read packet
+  --processOneMessage sock message
+  --processMessages sock
+  undefined
+
+
+processOneMessage sock message = do
+    let msg = words . BS.unpack $ message
+    let [messageType, file_name] = take 2 msg
+    putStrLn $ messageType ++ " " ++ file_name --consult musica.mp3
+    case messageType of
+      "consult" -> processConsultRequest sock file_name
+      "response" -> processConsultResponse sock msg
+
+
+processConsultRequest :: Socket -> String -> IO ()
+processConsultRequest connection file_name = do
+    k <- getCurrentDirectory
+    l <- getDirectoryContents k
+    let found = elem file_name l
+    let res = ((if found then "found " else "notfound ") ++ (file_name))
+    void $ audioTransfer connection res
+
+
+processConsultResponse :: Socket -> [String] -> IO()
+processConsultResponse sockSend msg = do
+    let ([messageType, file_name, wasFound, numberHosts], hosts) = splitAt 4 msg
+    let userUDPConnections = toUDPConnections hosts
+    if not $ read wasFound then putStrLn "Ficheiro não encontrado no servidor!"
+    else mapM_ send_probe_requests userUDPConnections --UDP
+
+toUDPConnections :: [String] -> [UserConnection]
+toUDPConnections [] = []
+toUDPConnections (ip:port:xs) = (UserConnection $ Just (ip, port)):(toUDPConnections xs) 
 
 audioTransfer sock msg = send sock (BS.pack msg)
 
@@ -75,6 +116,15 @@ test3 = do
   audioTransfer connection "data martinho YES!"
   close connection
 
+test4 = do
+  connection <- openConnection "127.0.0.1" "10514"
+  audioTransfer connection "register martinho 1234"
+  audioTransfer connection "login martinho 1234"
+  audioTransfer connection "data martinho I can now send message!"
+  audioTransfer connection "download martinho test.mp3"
+  audioTransfer connection "logout martinho 1234"
+
+  close connection
 
 main = do
   connection <- openConnection "127.0.0.1" "10514"

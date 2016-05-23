@@ -1,4 +1,4 @@
-module Main where
+module UDP where
 import qualified Data.ByteString as BSL
 import Data.ByteString.Lazy (fromStrict, toStrict)
 import GHC.IO.Handle
@@ -8,18 +8,17 @@ import System.IO
 import Network.Socket
 import Network.Socket.ByteString as NSB
 import Network.BSD
+import System.Directory
 
-packetSize = headerSize + dataSize
-dataSize = 48
-headerSize = 0
-packetsPerRead = 1000
+import AudioTransferTypes
 
-{-
-TODO:
->FIX READALL
-Ler pacotes e analisar cabeçalho, para saber quando parar de ler (funcao readAll)
 
--}
+
+getType = undefined
+toConsultRequest = undefined
+send_probe_requests = undefined
+readAll = undefined
+
 
 
 getSockUDPClient :: HostName -> String -> IO Socket     
@@ -32,7 +31,7 @@ getSockUDPClient hostname port =  withSocketsDo $ do
 
 getSockUDPServer :: IO Socket     
 getSockUDPServer = withSocketsDo $ do
- addrinfos <- getAddrInfo (Just (defaultHints {addrFlags=[AI_PASSIVE]})) Nothing (Just "4242")
+ addrinfos <- getAddrInfo (Just (defaultHints {addrFlags=[AI_PASSIVE]})) Nothing (Just defined_port)
  let serveraddr = Prelude.head addrinfos
  sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
  setSocketOption sock ReuseAddr 1
@@ -42,7 +41,7 @@ getSockUDPServer = withSocketsDo $ do
 
 
 testSend = withSocketsDo $ do
-    sock <- getSockUDPClient "localhost" "4242"
+    sock <- getSockUDPClient "localhost" defined_port --destino
     h <- socketToHandle sock ReadWriteMode 
     --sendFile ("in.txt") h
     putStrLn "Sending!"
@@ -61,12 +60,16 @@ testReceive = withSocketsDo $ do
     --input <- BSL.hGet h 83
     BSL.writeFile "out.mp3" input
     System.IO.putStrLn "Received and saved file!"
-
+{-
 main = do
     k <- getChar
     if k == '1' then testReceive
         else testSend
+-}
 -- //////////////////////////////////////////////////// actual code below
+
+
+
 
 
 sendAudio :: FilePath -> Handle -> IO()
@@ -138,16 +141,36 @@ getFile file handle = do
 
 reconstruct = BSL.concat
 
-readAll :: Handle -> IO [BSL.ByteString]
-readAll h = do
+{-readAll :: Socket -> IO [BSL.ByteString]
+readAll sockReceive sockSend = do
     System.IO.putStrLn "read one"
-    p <- getDatagram h
-    --case tipo p of 
+    --p <- getDatagramHeader h
+    (p, sa@(SockAddrInet port host)) <- recvfrom sockReceive headerSize 
+    case getType p of 
+        CONSULT_REQUEST -> do
+            k <- getCurrentDirectory
+            l <- getDirectoryContents k
+            let file_name = fileName $ (toConsultRequest p)
+            let found = elem file_name l
+            let datagram = ConsultResponse { wasFound=found, numberHosts =1, userUDPConnection = UserConnection (Just (host, defined_port)) }
+            let bytes = toConsultResponseByteString datagram
+            sendTo sockSend bytes sa
+        CONSULT_RESPONSE -> undefined
+        PROBE_REQUEST -> undefined
+        PROBE_RESPONSE -> undefined
+        REQUEST -> undefined
+        DATA -> undefined
         --dados -> readAll h
         --mensagem de fim de envios -> if (completo) then return else pedir retransmissao
     t <- readAll h
     return (p:t)
+-}
+
 
 getDatagram :: Handle -> IO BSL.ByteString
 getDatagram handle = do
     BSL.hGet handle packetSize
+
+getDatagramHeader :: Handle -> IO BSL.ByteString
+getDatagramHeader handle = do
+    BSL.hGet handle headerSize
