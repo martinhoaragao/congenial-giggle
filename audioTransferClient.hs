@@ -70,8 +70,13 @@ processConsultResponse :: Socket -> [String] -> IO()
 processConsultResponse sockSend msg = do
     let ([messageType, file_name, wasFound, numberHosts], hosts) = splitAt 4 msg
     let userUDPConnections = toUDPConnections hosts
-    if not $ read wasFound then putStrLn "Ficheiro não encontrado no servidor!"
-    else mapM_ send_probe_requests userUDPConnections --UDP
+    if not $ read wasFound then putStrLn "Ficheiro não encontrado no servidor!" >> return ()
+    else do
+      target_connection <- send_probe_requests userUDPConnections --UDP
+      case target_connection of
+        Nothing -> putStrLn "Não há utilizadores com ligação estável!" >> return ()
+        Just (ip, port) -> undefined
+
 
 toUDPConnections :: [String] -> [UserConnection]
 toUDPConnections [] = []
