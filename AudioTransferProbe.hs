@@ -1,8 +1,7 @@
-import AudioTransferHeader
-import AudioTransferTypes
-import UDP
 import Network.Socket (socketToHandle)
 import Data.ByteString.Lazy (fromStrict, toStrict)
+import Network.Socket.ByteString (recvFrom, sendTo)
+import Network.Socket (Socket, SockAddr (SockAddrInet))
 import Network.Socket.ByteString.Lazy
 import qualified Data.ByteString as BS
 import Control.Concurrent.STM
@@ -10,6 +9,48 @@ import Control.Concurrent (forkIO, killThread, threadDelay)
 import Data.Binary
 import System.IO 
 import Data.List (sortBy)
+import Data.Time.Clock.POSIX
+import Control.Monad (forever)
+
+import AudioTransferHeader
+import AudioTransferTypes
+import AudioTransferHeader
+import UDP
+
+--Asks target for a file named file_name
+send_file_request :: String -> String -> String -> IO ()
+send_file_request file_name ip port = do
+    sock <- getSockUDPClient ip port
+    let h = Header {getTipo ='6', getSeqNum = -1, getAckNum = -1, getDataSize = (length file_name)}
+    let datagram = addHeader h (toStrict $ encode file_name)
+    send sock $ fromStrict datagram
+    return ()
+
+--Answers a Probe Request with a timestamp
+send_probe_response :: Socket -> SockAddr -> IO ()
+send_probe_response  sock sa = do
+    --sock <- getSockUDPClient ip port
+    time <- getPOSIXTime
+    let s = init $ show time
+    let h = Header {getTipo ='5', getSeqNum = -1, getAckNum = -1, getDataSize = (length s)}
+    let datagram = addHeader h (toStrict $ encode s) --sends time, encoded
+    sendTo sock datagram sa
+    --send sock $ fromStrict datagram
+    return ()
+
+
+ --Must run at all times on client. Will respond to Probe Requests and File Requests
+udp_handler :: IO ()
+udp_handler = do
+    sockServ <- getSockUDPServer
+    forever $ do
+        (dados, sa@(SockAddrInet port host)) <- recvFrom sockServ 25
+        let h@(Header t s a d) = bs2header dados
+        case getMessageType h of
+            PROBE_REQUEST -> send_probe_response sockServ sa
+            REQUEST -> undefined
+
+
 
 
 getProbeRequest :: BS.ByteString

@@ -69,18 +69,14 @@ processConsultRequest connection file_name = do
 processConsultResponse :: Socket -> [String] -> IO()
 processConsultResponse sockSend msg = do
     let ([messageType, file_name, wasFound, numberHosts], hosts) = splitAt 4 msg
-    let userUDPConnections = toUDPConnections hosts
+    let userUDPConnections = words hosts
     if not $ read wasFound then putStrLn "Ficheiro não encontrado no servidor!" >> return ()
     else do
       target_connection <- send_probe_requests userUDPConnections --UDP
       case target_connection of
         Nothing -> putStrLn "Não há utilizadores com ligação estável!" >> return ()
-        Just (ip, port) -> undefined
+        Just (ip, port) -> send_file_request file_name ip port
 
-
-toUDPConnections :: [String] -> [UserConnection]
-toUDPConnections [] = []
-toUDPConnections (ip:port:xs) = (UserConnection $ Just (ip, port)):(toUDPConnections xs) 
 
 audioTransfer sock msg = send sock (BS.pack msg)
 

@@ -35,6 +35,16 @@ getMessageType h = case getTipo h of
                      '6' -> REQUEST
                      '7' -> DATA
 
+bs2header :: BS.ByteString -> Header
+bs2header b = let   t = (decode $ fromStrict w) :: Char
+                    s = (decode $ fromStrict x) :: Int
+                    a = (decode $ fromStrict y) :: Int
+                    d = (decode $ fromStrict z) :: Int
+              in (Header t s a d)
+    where (w, aux1) = BS.splitAt 1 b
+          (x, aux2) = BS.splitAt 8 aux1
+          (y, z) = BS.splitAt 8 aux2
+
 test = do
     file <- BS.readFile "sample.txt"
     let l = BS.length file
