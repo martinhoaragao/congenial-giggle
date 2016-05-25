@@ -1,17 +1,18 @@
-import Control.Concurrent
-import Network.Socket hiding (send, sendTo, recv, recvFrom)
-import Network.Socket.ByteString.Lazy
-import Prelude hiding (getContents)
-import qualified Data.ByteString.Lazy.Char8 as BS
-import Control.Monad
-import Control.Monad.Trans
-import System.Directory
-import Data.Maybe (fromJust)
+import           Control.Concurrent
+import           Control.Monad
+import           Control.Monad.Trans
+import qualified Data.ByteString.Lazy.Char8     as BS
+import           Data.Maybe                     (fromJust)
+import           Network.Socket                 hiding (recv, recvFrom, send,
+                                                 sendTo)
+import           Network.Socket.ByteString.Lazy
+import           Prelude                        hiding (getContents)
+import           System.Directory
 
 
-import Connection
-import AudioTransferTypes
-import UDP
+import           AudioTransferTypes
+import           Connection
+import           UDP
 
 
 
@@ -36,34 +37,28 @@ openConnection hostname port =
        -- Connect to server
        connect sock (addrAddress serveraddr)
 
-       forkIO $ processMessages sock
+       forkIO $ handleMessagesFromSock sock (processOneMessage sock)
 
        -- Save off the socket
        return sock
 
-processMessages sock = do
-  --read packet
-  --processOneMessage sock message
-  --processMessages sock
-  undefined
-
-
 processOneMessage sock message = do
     let msg = words . BS.unpack $ message
-    let [messageType, file_name] = take 2 msg
+    let [messageType, file_name, username] = take 3 msg
     putStrLn $ messageType ++ " " ++ file_name --consult musica.mp3
     case messageType of
-      "consult" -> processConsultRequest sock file_name
+      "consult" -> processConsultRequest sock file_name username
       "response" -> processConsultResponse sock msg
 
 
-processConsultRequest :: Socket -> String -> IO ()
-processConsultRequest connection file_name = do
+processConsultRequest :: Socket -> String -> String -> IO ()
+processConsultRequest connection file_name username = do
     k <- getCurrentDirectory
     l <- getDirectoryContents k
     let found = elem file_name l
-    let res = ((if found then "found " else "notfound ") ++ (file_name))
-    void $ audioTransfer connection res
+    when found $ do
+      let res = unwords ["response", username, file_name]
+      void $ audioTransfer connection res
 
 
 processConsultResponse :: Socket -> [String] -> IO()

@@ -1,18 +1,18 @@
 module Authentication where
 
-import qualified Data.Map as DM
-import Data.Maybe
-import Network.Socket (SockAddr)
-import Control.Monad
-import Control.Concurrent.STM
+import           Control.Concurrent.STM
+import           Control.Monad
+import qualified Data.Map               as DM
+import           Data.Maybe
+import           Network.Socket         (Socket)
 
 data User = User { getUsername   :: String
                  , getPassword   :: String
-                 , getConnection :: Maybe SockAddr
-                 } deriving (Eq, Ord, Show)
+                 , getConnection :: Maybe Socket
+                 } deriving (Eq, Show)
 
 newtype Users = Users (TVar (DM.Map String User))
-newtype UserConnected = UserConnected (TVar (Maybe String, SockAddr))
+newtype UserConnected = UserConnected (TVar (Maybe String, Socket))
 
 -- Helpers
 
@@ -34,9 +34,9 @@ newUsers = do
   t <- newTVarIO DM.empty
   return (Users t)
 
-newUserConnected :: SockAddr -> IO UserConnected
-newUserConnected clientaddr = do
-  t <- newTVarIO (Nothing, clientaddr)
+newUserConnected :: Socket -> IO UserConnected
+newUserConnected socket = do
+  t <- newTVarIO (Nothing, socket)
   return (UserConnected t)
 
 -- Register
@@ -100,3 +100,18 @@ deleteUser (UserConnected userSTM) (Users usersSTM) = atomically $ do
   when (isJust . fst $ user) $ do
     writeTVar usersSTM $ DM.delete (connectedUsername user) users
     writeTVar userSTM (Nothing, snd user)
+
+-- Convert Data
+
+getConnectedUsername (UserConnected userSTM) = atomically $ do
+  user <- readTVar userSTM
+  return $ connectedUsername user
+
+getConnectedUsersAddr users = do
+  usersList <- atomically $ getUsersSTM users
+  return $ map (fromJust . getConnection) $ filter (isJust . getConnection) usersList
+
+getUsersSTM :: Users -> STM [User]
+getUsersSTM (Users usersSTM) = do
+  users <- readTVar usersSTM
+  return $ DM.elems users
