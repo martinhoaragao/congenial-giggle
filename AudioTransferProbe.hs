@@ -1,7 +1,8 @@
+module AudioTransferProbe where
 import Network.Socket (socketToHandle)
 import Data.ByteString.Lazy (fromStrict, toStrict)
 import Network.Socket.ByteString (recvFrom, sendTo)
-import Network.Socket (Socket, SockAddr (SockAddrInet))
+import Network.Socket (Socket, SockAddr (SockAddrInet, SockAddrInet6))
 import Network.Socket.ByteString.Lazy
 import qualified Data.ByteString as BS
 import Control.Concurrent.STM
@@ -44,12 +45,19 @@ udp_handler :: IO ()
 udp_handler = do
     sockServ <- getSockUDPServer
     forever $ do
-        (dados, sa@(SockAddrInet port host)) <- recvFrom sockServ 25
+        --(dados, sa) <- recvFrom sockServ 25
+        (dados, sa) <- recvFrom sockServ 25
+        putStrLn $ ("Recebido dados! Vindos de " ++ (show sa))
+        let (SockAddrInet port host) = sa
+        --let (port, host) = fromSockAddr sa
         let h@(Header t s a d) = bs2header dados
         case getMessageType h of
             PROBE_REQUEST -> send_probe_response sockServ sa
             REQUEST -> undefined
 
+--fromSockAddr (SockAddrInet port host) = (port, host)
+--fromSockAddr (SockAddrInet6 port _ host _ ) = (port, host)
+--fromSockAddr (SockAddrUnix s) = error s
 
 
 

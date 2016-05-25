@@ -11,6 +11,7 @@ import           Connection
 import           ConsultsResponses
 --import AudioTransferTypes
 
+import Data.Char (isDigit)
 
 type HandlerFunc = SockAddr -> String -> IO ()
 
@@ -82,7 +83,9 @@ sendFile users consultsResponses userConnected file_name connSock = do
   mapM_ (`send` consult) connectedUsersAddr
   threadDelay $ 1 * 1000 * 1000
   consultResponsesAddr <- getConsultResponses username consultsResponses
-  let consultResponses = map (takeWhile (/= ':') . show) consultResponsesAddr
+  putStrLn $ drop 8 $ show consultResponsesAddr
+  --let consultResponses = map (takeWhile (/= ':') . show) consultResponsesAddr
+  let consultResponses = [takeWhile  (/= ']') $ dropWhile (not . isDigit) $ show consultResponsesAddr]
   let ifFound = if (null consultResponses) then "notfound" else "found"
   let reply = ["response", file_name, ifFound] ++ consultResponses
   deliver (unwords reply) connSock

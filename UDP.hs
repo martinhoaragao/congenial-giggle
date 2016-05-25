@@ -16,7 +16,6 @@ import AudioTransferTypes
 
 getType = undefined
 toConsultRequest = undefined
-send_probe_requests = undefined
 readAll = undefined
 
 

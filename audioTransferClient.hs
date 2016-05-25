@@ -9,7 +9,7 @@ import           Network.Socket.ByteString.Lazy
 import           Prelude                        hiding (getContents)
 import           System.Directory
 
-
+import           AudioTransferProbe
 import           AudioTransferTypes
 import           Connection
 import           UDP
@@ -36,7 +36,7 @@ openConnection hostname port =
 
        -- Connect to server
        connect sock (addrAddress serveraddr)
-
+       forkIO $ udp_handler
        forkIO $ handleMessagesFromSock sock (processOneMessage sock)
 
        -- Save off the socket
@@ -61,16 +61,16 @@ processConsultRequest connection file_name username = do
 
 
 processConsultResponse :: Socket -> [String] -> IO()
-processConsultResponse sockSend msg = undefined
-    -- do
-    -- let ([messageType, file_name, wasFound, numberHosts], hosts) = splitAt 4 msg
-    -- let userUDPConnections = words hosts
-    -- if not $ read wasFound then putStrLn "Ficheiro não encontrado no servidor!" >> return ()
-    -- else do
-    --   target_connection <- send_probe_requests userUDPConnections --UDP
-    --   case target_connection of
-    --     Nothing -> putStrLn "Não há utilizadores com ligação estável!" >> return ()
-    --     Just (ip, port) -> send_file_request file_name ip port
+processConsultResponse sockSend msg = do --undefined
+     print msg
+     let ([messageType, file_name, wasFound], hosts) = splitAt 3 msg
+     let userUDPConnections = map (\x -> UserConnection (Just (x, defined_port))) hosts
+     if wasFound == "notfound" then putStrLn "Ficheiro não encontrado no servidor!" >> return ()
+     else do
+       target_connection <- send_probe_requests userUDPConnections --UDP
+       case target_connection of
+         (Nothing) -> putStrLn "Não há utilizadores com ligação estável!" >> return ()
+         (Just (UserConnection (Just (ip, port)))) -> putStrLn "Yey Yupii!!!" --send_file_request file_name ip port
 
 
 audioTransfer sock msg = send sock (BS.pack msg)
