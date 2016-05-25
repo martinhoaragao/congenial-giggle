@@ -34,11 +34,13 @@ getMessageType h = case getTipo h of
                      '5' -> PROBE_RESPONSE
                      '6' -> REQUEST
                      '7' -> DATA
+                     '8' -> ACK
+                     '9' -> SYN
 
 test = do
     file <- BS.readFile "sample.txt"
     let l = BS.length file
-    let packet = addHeader (Header '1' 3 20 l) file
+    let packet = addHeader (Header '7' 3 20 l) file
     BS.writeFile "packet.txt" packet
 
     handle <- openFile "packet.txt" ReadMode

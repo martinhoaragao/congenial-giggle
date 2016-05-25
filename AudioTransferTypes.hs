@@ -4,7 +4,7 @@ import Data.Time.LocalTime
 packetSize :: Int
 packetSize = headerSize + dataSize
 
-dataSize ::Int 
+dataSize ::Int
 dataSize = 48
 
 headerSize :: Int
@@ -48,6 +48,8 @@ data MessageType =
           | PROBE_RESPONSE            -- ^ Transfer rate test
           | REQUEST                   -- ^ Request start of file transfer
           | DATA                      -- ^ File transfer
+          | ACK                       -- ^ Acknowledge
+          | SYN
                     deriving (Eq, Ord, Show, Read, Enum)
 
 data Header = Header { getTipo :: Char
