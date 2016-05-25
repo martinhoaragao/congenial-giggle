@@ -47,9 +47,8 @@ processOneMessage sock message = do
     let [messageType, file_name, username] = take 3 msg
     putStrLn $ messageType ++ " " ++ file_name --consult musica.mp3
     case messageType of
-      "consult" -> processConsultRequest sock file_name username
+      "consult"  -> processConsultRequest sock file_name username
       "response" -> processConsultResponse sock msg
-
 
 processConsultRequest :: Socket -> String -> String -> IO ()
 processConsultRequest connection file_name username = do
@@ -62,15 +61,16 @@ processConsultRequest connection file_name username = do
 
 
 processConsultResponse :: Socket -> [String] -> IO()
-processConsultResponse sockSend msg = do
-    let ([messageType, file_name, wasFound, numberHosts], hosts) = splitAt 4 msg
-    let userUDPConnections = words hosts
-    if not $ read wasFound then putStrLn "Ficheiro não encontrado no servidor!" >> return ()
-    else do
-      target_connection <- send_probe_requests userUDPConnections --UDP
-      case target_connection of
-        Nothing -> putStrLn "Não há utilizadores com ligação estável!" >> return ()
-        Just (ip, port) -> send_file_request file_name ip port
+processConsultResponse sockSend msg = undefined
+    -- do
+    -- let ([messageType, file_name, wasFound, numberHosts], hosts) = splitAt 4 msg
+    -- let userUDPConnections = words hosts
+    -- if not $ read wasFound then putStrLn "Ficheiro não encontrado no servidor!" >> return ()
+    -- else do
+    --   target_connection <- send_probe_requests userUDPConnections --UDP
+    --   case target_connection of
+    --     Nothing -> putStrLn "Não há utilizadores com ligação estável!" >> return ()
+    --     Just (ip, port) -> send_file_request file_name ip port
 
 
 audioTransfer sock msg = send sock (BS.pack msg)

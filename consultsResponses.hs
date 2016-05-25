@@ -39,8 +39,9 @@ addConsultResponseSTM username sockAddr (ConsultsResponses consultsResponsesSTM)
 -- Deliver Data
 
 getConsultResponses username consultsResponses = atomically $ do
+  consultResponses <- consultResponseSTM username consultsResponses
   removeConsultSTM username consultsResponses
-  consultResponseSTM username consultsResponses
+  return consultResponses
 
 consultResponseSTM :: String -> ConsultsResponses -> STM [SockAddr]
 consultResponseSTM username (ConsultsResponses consultsResponsesSTM) = do
