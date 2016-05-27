@@ -66,8 +66,5 @@ test = do
     BS.writeFile "packet.txt" packet
 
     handle <- openFile "packet.txt" ReadMode
-
     header <- readHeader handle
-
-    putStrLn $ "Tipo: "++ show (getMessageType header) ++ " SeqNum: "++ show (getSeqNum header) ++ " AckNum: "++ show (getAckNum header) ++ " DataSize: "++ show (getDataSize header)
-
+    headerToString header
