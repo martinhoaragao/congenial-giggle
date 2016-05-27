@@ -18,18 +18,7 @@ import AudioTransferTypes
 import AudioTransferHeader
 
 
-<<<<<<< HEAD
 getSockUDPClient :: HostName -> String -> IO Socket
-=======
-
-getType = undefined
-toConsultRequest = undefined
-readAll = undefined
-
-
-
-getSockUDPClient :: HostName -> String -> IO Socket     
->>>>>>> master
 getSockUDPClient hostname port =  withSocketsDo $ do
   addrinfos <- getAddrInfo Nothing (Just hostname) (Just port)
   let serveraddr = Prelude.head addrinfos
