@@ -1,5 +1,4 @@
 module AudioTransferTypes where
-import Data.Time.LocalTime
 
 packetSize :: Int
 packetSize = headerSize + dataSize
@@ -36,7 +35,7 @@ data ConsultResponse = ConsultResponse { wasFound          :: Bool
                                        , userUDPConnections :: [UserConnection]
                                        } deriving (Show)
 
-data ProbeResponse = ProbeResponse { time :: TimeOfDay
+data ProbeResponse = ProbeResponse { time :: Double
                                    } deriving (Show)
 
 {- | Types of message. -}

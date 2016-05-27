@@ -1,14 +1,17 @@
-import Network.Socket hiding (send, sendTo, recv, recvFrom)
-import Network.Socket.ByteString.Lazy
-import Prelude hiding (getContents)
-import qualified Data.ByteString.Lazy.Char8 as BS
-import Control.Concurrent
-import Control.Monad
+import           Control.Concurrent
+import           Control.Monad
+import qualified Data.ByteString.Lazy.Char8     as BS
+import           Network.Socket                 hiding (recv, recvFrom, send,
+                                                 sendTo)
+import           Network.Socket.ByteString.Lazy
+import           Prelude                        hiding (getContents)
 
-import Authentication
-import Connection
+import           Authentication
+import           Connection
+import           ConsultsResponses
 --import AudioTransferTypes
 
+import Data.Char (isDigit)
 
 type HandlerFunc = SockAddr -> String -> IO ()
 
@@ -33,51 +36,69 @@ openConnection port handlerfunc = withSocketsDo $
        -- of 5 connection requests waiting to be accepted.
        listen sock 5
 
-       -- Create user data structure
+       -- Create data structures
        users <- newUsers
+       consultsResponses <- newConsultsResponses
        -- Loop forever waiting for connections.  Ctrl-C to abort.
-       procRequests users sock
+       procRequests users consultsResponses sock
 
        close sock
 
     where
           -- | Process incoming connection requests
-          procRequests :: Users -> Socket -> IO ()
-          procRequests users mastersock =
+          procRequests :: Users -> ConsultsResponses -> Socket -> IO ()
+          procRequests users consultsResponses mastersock =
               do (connsock, clientAddr) <- accept mastersock
                  handlerfunc clientAddr "Client connnected"
-                 forkIO $ procMessages users connsock clientAddr
-                 procRequests users mastersock
+                 forkIO $ procMessages users consultsResponses connsock clientAddr
+                 procRequests users consultsResponses mastersock
 
           -- | Process incoming messages
-          procMessages :: Users -> Socket -> SockAddr -> IO ()
-          procMessages users connSock clientAddr = do
-            userConnected <- newUserConnected clientAddr
-            handleMessagesFromSock connSock (handle users userConnected connSock)
+          procMessages :: Users -> ConsultsResponses -> Socket -> SockAddr -> IO ()
+          procMessages users consultsResponses connSock clientAddr = do
+            userConnected <- newUserConnected connSock
+            handleMessagesFromSock connSock (handle users consultsResponses userConnected connSock)
             plainHandler clientAddr "Client disconnected"
 
-          handle :: Users -> UserConnected -> Socket -> BS.ByteString -> IO()
-          handle users userConnected connSock message = do
+          handle :: Users -> ConsultsResponses -> UserConnected -> Socket -> BS.ByteString -> IO()
+          handle users consultsResponses userConnected connSock message = do
             let msg = words . BS.unpack $ message
-            let [messageType, usernm, file_name@password] = take 3 msg
-            putStrLn $ messageType ++" " ++ usernm ++ " "++  password
+            let [messageType, usernm@file_name] = take 2 msg
+            -- putStrLn $ messageType ++" " ++ usernm ++ " "++  password   -- Test if Server Receiving
+            peerAddr <- getPeerName connSock
             loggedIn <- isLoggedIn userConnected users
             case messageType of
-              "register"  -> register usernm password users
-              "login"     -> logInUser usernm password userConnected users
+              "register"  -> register usernm (msg !! 2) users
+              "login"     -> logInUser usernm (msg !! 2) userConnected users
               "delete"    -> when loggedIn $ deleteUser userConnected users
               "logout"    -> when loggedIn $ logOutUser userConnected users
-              "data"      -> when loggedIn $ deliver connSock message
-              "download"  -> when loggedIn $ sendFile connSock file_name
+              "download"  -> when loggedIn $ sendFile users consultsResponses userConnected file_name connSock
+              "response"  -> addConsultResponse usernm peerAddr consultsResponses
 
-sendFile connSock file_name = undefined 
-  --enviar "consult file_name" a todos os users, 
-  --juntar resultados, 
+sendFile users consultsResponses userConnected file_name connSock = do
+  username <- getConnectedUsername userConnected
+  addConsult username consultsResponses
+  connectedUsersAddr <- getConnectedUsersAddr users
+  let consult = BS.pack . unwords $ ["consult", file_name, username]
+  mapM_ (`send` consult) connectedUsersAddr
+  threadDelay $ 1 * 1000 * 1000
+  consultResponsesAddr <- getConsultResponses username consultsResponses
+  putStrLn $ drop 8 $ show consultResponsesAddr
+  --let consultResponses = map (takeWhile (/= ':') . show) consultResponsesAddr
+  let consultResponses = [takeWhile  (/= ']') $ dropWhile (not . isDigit) $ show consultResponsesAddr]
+  let ifFound = if (null consultResponses) then "notfound" else "found"
+  let reply = ["response", file_name, ifFound] ++ consultResponses
+  deliver (unwords reply) connSock
+  print reply
+
+  return ()
+
+
+  --juntar resultados,
   --enviar "response file_name wasFound nHosts host1 port1 host2 port2 host3 port3" a connSock
 
-deliver connSock msg = do
-  let message = BS.pack . unwords . drop 1 . words . BS.unpack $ msg
-  send connSock message
+deliver msg connSock = do
+  send connSock (BS.pack msg)
 
   return ()
 
