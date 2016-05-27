@@ -3,6 +3,8 @@ import qualified Data.ByteString as BS
 import Data.ByteString.Lazy (fromStrict, toStrict)
 import Data.Binary
 import System.IO
+import Network.Socket hiding (recv)
+import Network.Socket.ByteString
 import GHC.IO.Handle
 import AudioTransferTypes
 
@@ -35,6 +37,15 @@ getMessageType h = case getTipo h of
                      '6' -> REQUEST
                      '7' -> DATA
 
+readHeaderS :: Socket -> IO Header
+readHeaderS socket = do
+  b <- recv socket headerSize
+  return (bs2header b)
+
+readHeaderB :: BS.ByteString -> (Header, BS.ByteString)
+readHeaderB b = (bs2header b, bs)
+  where (_,bs) = BS.splitAt headerSize b
+
 bs2header :: BS.ByteString -> Header
 bs2header b = let   t = (decode $ fromStrict w) :: Char
                     s = (decode $ fromStrict x) :: Int
@@ -44,6 +55,9 @@ bs2header b = let   t = (decode $ fromStrict w) :: Char
     where (w, aux1) = BS.splitAt 1 b
           (x, aux2) = BS.splitAt 8 aux1
           (y, z) = BS.splitAt 8 aux2
+
+headerToString :: Header -> IO()
+headerToString header = putStrLn $ "Tipo: "++ show (getMessageType header) ++ " SeqNum: "++ show (getSeqNum header) ++ " AckNum: "++ show (getAckNum header) ++ " DataSize: "++ show (getDataSize header)
 
 test = do
     file <- BS.readFile "sample.txt"
@@ -55,5 +69,5 @@ test = do
 
     header <- readHeader handle
 
-    putStrLn $ "Tipo: "++ show (getMessageType header) ++ " SeqNum: "++ show (getSeqNum header) ++ " AckNum: "++ show (getSeqNum header) ++ " DataSize: "++ show (getDataSize header)
+    putStrLn $ "Tipo: "++ show (getMessageType header) ++ " SeqNum: "++ show (getSeqNum header) ++ " AckNum: "++ show (getAckNum header) ++ " DataSize: "++ show (getDataSize header)
 
