@@ -4,11 +4,11 @@ import Data.Time.LocalTime
 packetSize :: Int
 packetSize = headerSize + dataSize
 
-dataSize ::Int
+dataSize :: Int
 dataSize = 48
 
 headerSize :: Int
-headerSize = 0
+headerSize = 25
 
 packetsPerRead :: Int
 packetsPerRead = 1000
