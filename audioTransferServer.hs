@@ -64,7 +64,7 @@ openConnection port handlerfunc = withSocketsDo $
           handle users consultsResponses userConnected connSock message = do
             let msg = words . BS.unpack $ message
             let [messageType, usernm@file_name] = take 2 msg
-            -- putStrLn $ messageType ++" " ++ usernm ++ " "++  password   -- Test if Server Receiving
+            putStrLn $ messageType ++" " ++ usernm -- ++ " "++  password   -- Test if Server Receiving
             peerAddr <- getPeerName connSock
             loggedIn <- isLoggedIn userConnected users
             case messageType of
@@ -83,9 +83,9 @@ sendFile users consultsResponses userConnected file_name connSock = do
   mapM_ (`send` consult) connectedUsersAddr
   threadDelay $ 1 * 1000 * 1000
   consultResponsesAddr <- getConsultResponses username consultsResponses
-  putStrLn $ drop 8 $ show consultResponsesAddr
   --let consultResponses = map (takeWhile (/= ':') . show) consultResponsesAddr
-  let consultResponses = [takeWhile  (/= ']') $ dropWhile (not . isDigit) $ show consultResponsesAddr]
+  --let consultResponses = [takeWhile  (/= ']') $ dropWhile (not . isDigit) $ show consultResponsesAddr]
+  let consultResponses = parseIP consultResponsesAddr
   let ifFound = if (null consultResponses) then "notfound" else "found"
   let reply = ["response", file_name, ifFound] ++ consultResponses
   deliver (unwords reply) connSock
@@ -96,6 +96,11 @@ sendFile users consultsResponses userConnected file_name connSock = do
 
   --juntar resultados,
   --enviar "response file_name wasFound nHosts host1 port1 host2 port2 host3 port3" a connSock
+
+parseIP sockAddr = case s of
+  '[':_ -> [takeWhile  (/= ']') $ dropWhile (not . isDigit) s]
+  _     -> [takeWhile (/= ':') s]
+ where s = show sockAddr
 
 deliver msg connSock = do
   send connSock (BS.pack msg)

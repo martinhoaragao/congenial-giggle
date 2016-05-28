@@ -33,8 +33,9 @@ send_probe_response  sock sa = do
     --sock <- getSockUDPClient ip port
     time <- getPOSIXTime
     let s = init $ show time
-    let h = Header {getTipo ='5', getSeqNum = -1, getAckNum = -1, getDataSize = (length s)}
-    let datagram = addHeader h (toStrict $ encode s) --sends time, encoded
+    let dados = (toStrict $ encode s)
+    let h = Header {getTipo ='5', getSeqNum = -1, getAckNum = -1, getDataSize = (BS.length dados)}
+    let datagram = addHeader h dados --sends time, encoded
     sendTo sock datagram sa
     --send sock $ fromStrict datagram
     return ()
@@ -72,6 +73,7 @@ send_probe_requests l = do
     mapM_ killThread threads
     --return responses
     gathered_responses <- readTVarIO responses
+    print gathered_responses
     if (length gathered_responses) == 0 then return Nothing
     else return $ Just $ fst $ head $ sortBy (\x y -> (compare)(time $ snd x) (time $ snd y)) gathered_responses
 
