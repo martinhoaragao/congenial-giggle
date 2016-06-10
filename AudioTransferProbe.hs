@@ -1,22 +1,24 @@
 module AudioTransferProbe where
-import Network.Socket (socketToHandle)
-import Data.ByteString.Lazy (fromStrict, toStrict)
-import Network.Socket.ByteString (recvFrom, sendTo)
-import Network.Socket (Socket, SockAddr (SockAddrInet, SockAddrInet6))
-import Network.Socket.ByteString.Lazy
-import qualified Data.ByteString as BS
-import Control.Concurrent.STM
-import Control.Concurrent (forkIO, killThread, threadDelay)
-import Data.Binary
-import System.IO 
-import Data.List (sortBy)
-import Data.Time.Clock.POSIX
-import Control.Monad (forever)
+import           Control.Concurrent             (forkIO, killThread,
+                                                 threadDelay)
+import           Control.Concurrent.STM
+import           Control.Monad                  (forever)
+import           Data.Binary
+import qualified Data.ByteString                as BS
+import           Data.ByteString.Lazy           (fromStrict, toStrict)
+import           Data.List                      (sortBy)
+import           Data.Time.Clock.POSIX
+import           Network.Socket                 (socketToHandle)
+import           Network.Socket                 (SockAddr (SockAddrInet, SockAddrInet6),
+                                                 Socket)
+import           Network.Socket.ByteString      (recvFrom, sendTo)
+import           Network.Socket.ByteString.Lazy
+import           System.IO
 
-import AudioTransferHeader
-import AudioTransferTypes
-import AudioTransferHeader
-import UDP
+import           AudioTransferHeader
+import           AudioTransferHeader
+import           AudioTransferTypes
+import           UDP
 
 --Asks target for a file named file_name
 send_file_request :: String -> String -> String -> IO ()
@@ -42,9 +44,9 @@ send_probe_response  sock sa = do
 
 
  --Must run at all times on client. Will respond to Probe Requests and File Requests
-udp_handler :: IO ()
-udp_handler = do
-    sockServ <- getSockUDPServer
+udp_handler :: String -> IO ()
+udp_handler udpPort = do
+    sockServ <- getSockUDPServer udpPort
     forever $ do
         --(dados, sa) <- recvFrom sockServ 25
         (dados, sa) <- recvFrom sockServ 25
@@ -87,10 +89,7 @@ send_probe uuc@(UserConnection (Just (ip, port))) responses = do
     send sock datagram
     handle <- socketToHandle sock ReadMode
     (Header t s a d) <- readHeader handle
-    resto <- BS.hGet handle d 
+    resto <- BS.hGet handle d
     let tempo_after = (decode $ fromStrict resto) :: String
-    atomically $ modifyTVar' responses (\k -> (uuc, (ProbeResponse {time = read tempo_after :: Double})):k) 
+    atomically $ modifyTVar' responses (\k -> (uuc, (ProbeResponse {time = read tempo_after :: Double})):k)
     return ()
-
-
-

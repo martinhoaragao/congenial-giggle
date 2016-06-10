@@ -17,10 +17,11 @@ import           UDP
 
 
 openConnection :: HostName      -- ^ Remote hostname, or 127.0.0.1
-               -> String        -- ^ Port number or name; 514 is default
+               -> String        -- ^ Server Port number or name; 514 is default
+               -> String        -- ^ Client UDP Port number
                -> IO Socket
 
-openConnection hostname port =
+openConnection hostname port udpPort =
     do -- Look up the hostname and port.  Either raises an exception
        -- or returns a nonempty list.  First element in that list
        -- is supposed to be the best option.
@@ -36,7 +37,7 @@ openConnection hostname port =
 
        -- Connect to server
        connect sock (addrAddress serveraddr)
-       forkIO $ udp_handler
+       forkIO $ udp_handler udpPort
        forkIO $ handleMessagesFromSock sock (processOneMessage sock)
 
        -- Save off the socket
@@ -54,7 +55,7 @@ processConsultRequest :: Socket -> String -> String -> IO ()
 processConsultRequest connection file_name username = do
     k <- getCurrentDirectory
     l <- getDirectoryContents k
-    let found = elem file_name l
+    let found = file_name `elem` l
     when found $ do
       let res = unwords ["response", username, file_name]
       void $ audioTransfer connection res
@@ -65,11 +66,11 @@ processConsultResponse sockSend msg = do --undefined
      print msg
      let ([messageType, file_name, wasFound], hosts) = splitAt 3 msg
      let userUDPConnections = map (\x -> UserConnection (Just (x, defined_port))) hosts
-     if wasFound == "notfound" then putStrLn "Ficheiro não encontrado no servidor!" >> return ()
+     if wasFound == "notfound" then void (putStrLn "Ficheiro não encontrado no servidor!")
      else do
        target_connection <- send_probe_requests userUDPConnections --UDP
        case target_connection of
-         (Nothing) -> putStrLn "Não há utilizadores com ligação estável!" >> return ()
+         Nothing -> void (putStrLn "Não há utilizadores com ligação estável!")
          (Just (UserConnection (Just (ip, port)))) -> putStrLn "Yey Yupii!!!" --send_file_request file_name ip port
 
 
@@ -77,7 +78,7 @@ audioTransfer sock msg = send sock (BS.pack msg)
 
 
 test1 = do
-  connection <- openConnection "127.0.0.1" "10514"
+  connection <- openConnection "127.0.0.1" "10514" "10515"
   audioTransfer connection "register martinho 1234"
   audioTransfer connection "login martinho 1234"
   audioTransfer connection "data martinho I can now send message!"
@@ -87,7 +88,7 @@ test1 = do
   close connection
 
 test2 = do
-  connection <- openConnection "127.0.0.1" "10514"
+  connection <- openConnection "127.0.0.1" "10514" "10515"
   audioTransfer connection "register joaquim 1234"
   audioTransfer connection "data joaquim Message after register!"
   audioTransfer connection "logout joaquim 1234"
@@ -103,7 +104,7 @@ test2 = do
   close connection
 
 test3 = do
-  connection <- openConnection "127.0.0.1" "10514"
+  connection <- openConnection "127.0.0.1" "10514" "10515"
   audioTransfer connection "register martinho 1234"
   audioTransfer connection "login martinho 1234"
   audioTransfer connection "data martinho I can now send message!"
@@ -113,7 +114,7 @@ test3 = do
   close connection
 
 test4 = do
-  connection <- openConnection "127.0.0.1" "10514"
+  connection <- openConnection "127.0.0.1" "10514" "10515"
   audioTransfer connection "register martinho 1234"
   audioTransfer connection "login martinho 1234"
   audioTransfer connection "data martinho I can now send message!"
@@ -123,7 +124,9 @@ test4 = do
   close connection
 
 main = do
-  connection <- openConnection "127.0.0.1" "10514"
+  putStrLn "Indique uma porta UDP do Cliente"
+  udpPort <- getLine
+  connection <- openConnection "127.0.0.1" "10514" udpPort
   forever $ do
     text <- getLine
     audioTransfer connection text

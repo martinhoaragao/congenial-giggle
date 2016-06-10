@@ -1,21 +1,16 @@
 module UDP where
-import qualified Data.ByteString as BS
-import Data.ByteString.Lazy (fromStrict, toStrict)
-import GHC.IO.Handle
-import Control.Monad
-import Control.Concurrent (forkIO)
-import Data.Binary
-import Data.List
-import System.IO
-import Network.Socket hiding (send, recv, sendTo, recvFrom)
-import Network.Socket.ByteString as NSB
-import Network.BSD
-import System.Directory
-import System.Random
-import System.Timeout
+import           Data.Binary
+import qualified Data.ByteString           as BS
+import           Data.ByteString.Lazy      (fromStrict, toStrict)
+import           Data.List
+import           Network.BSD
+import           Network.Socket            hiding (recv, recvFrom, send, sendTo)
+import           Network.Socket.ByteString as NSB
+import           System.Random
+import           System.Timeout
 
-import AudioTransferTypes
-import AudioTransferHeader
+import           AudioTransferHeader
+import           AudioTransferTypes
 
 
 getSockUDPClient :: HostName -> String -> IO Socket
@@ -26,9 +21,9 @@ getSockUDPClient hostname port =  withSocketsDo $ do
   connect sock (addrAddress serveraddr)
   return sock
 
-getSockUDPServer :: IO Socket
-getSockUDPServer = withSocketsDo $ do
-  addrinfos <- getAddrInfo (Just (defaultHints {addrFlags=[AI_PASSIVE]})) Nothing (Just defined_port)
+getSockUDPServer :: String -> IO Socket
+getSockUDPServer udpPort = withSocketsDo $ do
+  addrinfos <- getAddrInfo (Just (defaultHints {addrFlags=[AI_PASSIVE]})) Nothing (Just udpPort)
   let serveraddr = Prelude.head addrinfos
   sock <- socket (addrFamily serveraddr) Datagram defaultProtocol
   setSocketOption sock ReuseAddr 1
@@ -38,14 +33,14 @@ getSockUDPServer = withSocketsDo $ do
 -- Retransmission (Inteiros - 8 bits)
 
 separate :: BS.ByteString -> [BS.ByteString]
-separate l = separate' (fromIntegral dataSize) l
-  where separate' n l = if BS.null l then [] else (a):(separate' n b)
+separate = separate' (fromIntegral dataSize)
+  where separate' n l = if BS.null l then [] else a : separate' n b
           where (a,b) = BS.splitAt n l
 
 oneList :: [a] -> [b] -> [(a,b)]
 oneList _ [] = []
 oneList [] _ = []
-oneList (x:xs) (y:ys) = [(x,y)] ++ (oneList xs ys)
+oneList (x:xs) (y:ys) = (x,y) : oneList xs ys
 
 sortP :: (Int,BS.ByteString) -> (Int,BS.ByteString) -> Ordering
 sortP (a,_) (b,_)
@@ -77,7 +72,7 @@ readPacket socket = withSocketsDo $ do
 sendPacket :: Socket -> BS.ByteString -> IO()
 sendPacket socket packet = withSocketsDo $ do
   r <- randomRIO(0,100) :: IO Int
-  if(r == 0) then do
+  if r == 0 then
               putStrLn "Lost packet!"
             else do
               send socket packet
@@ -88,22 +83,22 @@ sendPacket socket packet = withSocketsDo $ do
     Nothing -> do
       putStrLn "No Ack received... Resending..."
       sendPacket socket packet
-    (Just a) -> do
-      if(a == 1) then putStrLn "Received Ack!"
+    (Just a) ->
+      if a == 1 then putStrLn "Received Ack!"
                 else do
                   putStrLn "Client asked to resend!"
                   sendPacket socket packet
 
 testSend = withSocketsDo $ do
-  socket <- getSockUDPClient "localhost" defined_port
+  socket <- getSockUDPClient "localhost" "10513"
   f <- BS.readFile "test.mp3"
   let l = BS.length f
       list = oneList [1..] (separate f)
       nPackets = length list
       lbs = toStrict (encode (l::Int))
       nbs = toStrict (encode (nPackets::Int))
-      headerL = (Header '7' (-1) 0 (BS.length lbs))
-      headerN = (Header '7' 0 0 (BS.length nbs))
+      headerL = Header '7' (-1) 0 (BS.length lbs)
+      headerN = Header '7' 0 0 (BS.length nbs)
   headerToString headerL
   sendPacket socket (addHeader headerL lbs)
   headerToString headerN
@@ -117,7 +112,7 @@ testSend = withSocketsDo $ do
   close socket
 
 testReceive = withSocketsDo $ do
-  socket <- getSockUDPServer
+  socket <- getSockUDPServer "10550"
   (_,lPacket) <- readPacket socket
   let l = (decode $ fromStrict lPacket) ::Int
   (_,nPacket) <- readPacket socket
@@ -125,9 +120,9 @@ testReceive = withSocketsDo $ do
 
   list <- mapM (\i -> readPacket socket) [1..n]
   let dt = sortBy sortP list
-      d = BS.concat (map (\i -> snd i) dt)
+      d = BS.concat (map snd dt)
   BS.writeFile "out.mp3" d
   putStrLn "Received and saved file!"
 
-  putStrLn $ "Data: " ++ (show n) ++ " packets (" ++ (show l) ++ " bytes)"
+  putStrLn $ "Data: " ++ show n ++ " packets (" ++ show l ++ " bytes)"
   close socket
