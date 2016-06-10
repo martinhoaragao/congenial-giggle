@@ -6,12 +6,13 @@ import           Network.Socket                 hiding (recv, recvFrom, send,
 import           Network.Socket.ByteString.Lazy
 import           Prelude                        hiding (getContents)
 
+import           AudioTransferTypes
 import           Authentication
 import           Connection
 import           ConsultsResponses
---import AudioTransferTypes
-
-import Data.Char (isDigit)
+import           Data.Char                      (isDigit)
+import           Data.IP
+import           Data.Maybe
 
 type HandlerFunc = SockAddr -> String -> IO ()
 
@@ -65,7 +66,8 @@ openConnection port handlerfunc = withSocketsDo $
             let msg = words . BS.unpack $ message
             let [messageType, usernm@file_name] = take 2 msg
             putStrLn $ messageType ++" " ++ usernm -- ++ " "++  password   -- Test if Server Receiving
-            peerAddr <- getPeerName connSock
+            sockAddr <- getPeerName connSock
+            (host, service) <- getNameInfo [NI_NOFQDN, NI_NUMERICHOST] True True sockAddr
             loggedIn <- isLoggedIn userConnected users
             case messageType of
               "register"  -> register usernm (msg !! 2) users
@@ -73,7 +75,8 @@ openConnection port handlerfunc = withSocketsDo $
               "delete"    -> when loggedIn $ deleteUser userConnected users
               "logout"    -> when loggedIn $ logOutUser userConnected users
               "download"  -> when loggedIn $ sendFile users consultsResponses userConnected file_name connSock
-              "response"  -> addConsultResponse usernm peerAddr consultsResponses
+              "response"  -> addConsultResponse usernm (fromJust host, msg !! 2) consultsResponses
+              _ -> return ()
 
 sendFile users consultsResponses userConnected file_name connSock = do
   username <- getConnectedUsername userConnected
@@ -83,11 +86,8 @@ sendFile users consultsResponses userConnected file_name connSock = do
   mapM_ (`send` consult) connectedUsersAddr
   threadDelay $ 1 * 1000 * 1000
   consultResponsesAddr <- getConsultResponses username consultsResponses
-  --let consultResponses = map (takeWhile (/= ':') . show) consultResponsesAddr
-  --let consultResponses = [takeWhile  (/= ']') $ dropWhile (not . isDigit) $ show consultResponsesAddr]
-  let consultResponses = parseIP consultResponsesAddr
-  let ifFound = if (null consultResponses) then "notfound" else "found"
-  let reply = ["response", file_name, ifFound] ++ consultResponses
+  let ifFound = if null consultResponsesAddr then "notfound" else "found"
+  let reply = ["response", file_name, ifFound] ++ concatMap (\(addr, port) -> [addr, port]) consultResponsesAddr
   deliver (unwords reply) connSock
   print reply
 
@@ -96,11 +96,6 @@ sendFile users consultsResponses userConnected file_name connSock = do
 
   --juntar resultados,
   --enviar "response file_name wasFound nHosts host1 port1 host2 port2 host3 port3" a connSock
-
-parseIP sockAddr = case s of
-  '[':_ -> [takeWhile  (/= ']') $ dropWhile (not . isDigit) s]
-  _     -> [takeWhile (/= ':') s]
- where s = show sockAddr
 
 deliver msg connSock = do
   send connSock (BS.pack msg)

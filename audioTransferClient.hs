@@ -38,40 +38,43 @@ openConnection hostname port udpPort =
        -- Connect to server
        connect sock (addrAddress serveraddr)
        forkIO $ udp_handler udpPort
-       forkIO $ handleMessagesFromSock sock (processOneMessage sock)
+       forkIO $ handleMessagesFromSock sock (processOneMessage sock udpPort)
 
        -- Save off the socket
        return sock
 
-processOneMessage sock message = do
+processOneMessage sock udpPort message = do
     let msg = words . BS.unpack $ message
     let [messageType, file_name, username] = take 3 msg
     putStrLn $ messageType ++ " " ++ file_name --consult musica.mp3
     case messageType of
-      "consult"  -> processConsultRequest sock file_name username
+      "consult"  -> processConsultRequest sock udpPort file_name username
       "response" -> processConsultResponse sock msg
 
-processConsultRequest :: Socket -> String -> String -> IO ()
-processConsultRequest connection file_name username = do
+processConsultRequest :: Socket -> String -> String -> String -> IO ()
+processConsultRequest connection udpPort file_name username = do
     k <- getCurrentDirectory
     l <- getDirectoryContents k
     let found = file_name `elem` l
     when found $ do
-      let res = unwords ["response", username, file_name]
+      let res = unwords ["response", username, udpPort]
       void $ audioTransfer connection res
 
+recoverAddrPair [] = []
+recoverAddrPair (addr:port:l) = (addr,port) : recoverAddrPair l
 
 processConsultResponse :: Socket -> [String] -> IO()
 processConsultResponse sockSend msg = do --undefined
      print msg
      let ([messageType, file_name, wasFound], hosts) = splitAt 3 msg
-     let userUDPConnections = map (\x -> UserConnection (Just (x, defined_port))) hosts
+     let hostsAddr = recoverAddrPair hosts
+     let userUDPConnections = map (\(addr, port) -> UserConnection (Just (addr, port))) hostsAddr
      if wasFound == "notfound" then void (putStrLn "Ficheiro não encontrado no servidor!")
      else do
        target_connection <- send_probe_requests userUDPConnections --UDP
        case target_connection of
          Nothing -> void (putStrLn "Não há utilizadores com ligação estável!")
-         (Just (UserConnection (Just (ip, port)))) -> putStrLn "Yey Yupii!!!" --send_file_request file_name ip port
+         _ -> putStrLn "Yey Yupii!!!" --send_file_request file_name ip port
 
 
 audioTransfer sock msg = send sock (BS.pack msg)

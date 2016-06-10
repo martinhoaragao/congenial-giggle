@@ -1,11 +1,12 @@
 module ConsultsResponses where
 
+import           AudioTransferTypes
 import           Control.Concurrent.STM
 import qualified Data.Map               as DM
 import           Data.Maybe
-import           Network.Socket         (SockAddr)
 
-newtype ConsultsResponses = ConsultsResponses (TVar (DM.Map String [SockAddr]))
+
+newtype ConsultsResponses = ConsultsResponses (TVar (DM.Map String [(String, String)]))
 
 
 -- Begin Data
@@ -26,10 +27,10 @@ addConsultSTM username (ConsultsResponses consultsResponsesSTM) = do
   consultsResponses <- readTVar consultsResponsesSTM
   writeTVar consultsResponsesSTM $ DM.insert username [] consultsResponses
 
-addConsultResponse username sockAddr consultsResponses =
-  atomically $ addConsultResponseSTM username sockAddr consultsResponses
+addConsultResponse username addr consultsResponses = atomically $
+  addConsultResponseSTM username addr consultsResponses
 
-addConsultResponseSTM :: String -> SockAddr -> ConsultsResponses -> STM ()
+addConsultResponseSTM :: String -> (String, String) -> ConsultsResponses -> STM ()
 addConsultResponseSTM username sockAddr (ConsultsResponses consultsResponsesSTM) = do
   consultsResponses <- readTVar consultsResponsesSTM
   let consultResponses = fromJust $ DM.lookup username consultsResponses
@@ -43,7 +44,7 @@ getConsultResponses username consultsResponses = atomically $ do
   removeConsultSTM username consultsResponses
   return consultResponses
 
-consultResponseSTM :: String -> ConsultsResponses -> STM [SockAddr]
+consultResponseSTM :: String -> ConsultsResponses -> STM [(String, String)]
 consultResponseSTM username (ConsultsResponses consultsResponsesSTM) = do
   consultsResponses <- readTVar consultsResponsesSTM
   return $ fromJust $ DM.lookup username consultsResponses
