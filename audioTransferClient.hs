@@ -74,7 +74,10 @@ processConsultResponse sockSend msg = do --undefined
        target_connection <- send_probe_requests userUDPConnections --UDP
        case target_connection of
          Nothing -> void (putStrLn "Não há utilizadores com ligação estável!")
-         _ -> putStrLn "Yey Yupii!!!" --send_file_request file_name ip port
+         Just (UserConnection (Just (ip, port))) -> do
+            send_file_request file_name ip port
+            --recv_func file_name
+         --_ -> putStrLn "Yey Yupii!!!" --send_file_request file_name ip port
 
 
 audioTransfer sock msg = send sock (BS.pack msg)

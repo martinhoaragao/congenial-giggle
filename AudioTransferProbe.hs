@@ -5,7 +5,7 @@ import           Control.Concurrent.STM
 import           Control.Monad                  (forever)
 import           Data.Binary
 import qualified Data.ByteString                as BS
-import           Data.ByteString.Lazy           (fromStrict, toStrict)
+import           Data.ByteString.Lazy           (fromStrict, toStrict, cycle, take)
 import           Data.List                      (sortBy)
 import           Data.Time.Clock.POSIX
 import           Network.Socket                 (socketToHandle)
@@ -14,19 +14,26 @@ import           Network.Socket                 (SockAddr (SockAddrInet, SockAdd
 import           Network.Socket.ByteString      (recvFrom, sendTo)
 import           Network.Socket.ByteString.Lazy
 import           System.IO
+import           Prelude hiding (cycle)
 
 import           AudioTransferHeader
 import           AudioTransferHeader
 import           AudioTransferTypes
 import           UDP
 
+trash n = toStrict $ Data.ByteString.Lazy.take (128 - (fromIntegral n)) $ cycle $ encode 'a'
+
 --Asks target for a file named file_name
 send_file_request :: String -> String -> String -> IO ()
 send_file_request file_name ip port = do
     sock <- getSockUDPClient ip port
-    let h = Header {getTipo ='6', getSeqNum = -1, getAckNum = -1, getDataSize = (length file_name)}
+    let h = Header {getTipo ='6', getSeqNum = -1, getAckNum = -1, getDataSize = BS.length $ toStrict $ encode file_name}
     let datagram = addHeader h (toStrict $ encode file_name)
-    send sock $ fromStrict datagram
+    --let datagram = addHeader h (toStrict $ encode 'a')
+    let datagramPadded = BS.take 128 $ BS.append datagram (trash (BS.length datagram))
+    k <- send sock $ fromStrict datagramPadded
+    putStr ("Asking for " ++ file_name)
+    putStrLn( " of size " ++ show (k)) 
     return ()
 
 --Answers a Probe Request with a timestamp
@@ -38,7 +45,9 @@ send_probe_response  sock sa = do
     let dados = (toStrict $ encode s)
     let h = Header {getTipo ='5', getSeqNum = -1, getAckNum = -1, getDataSize = (BS.length dados)}
     let datagram = addHeader h dados --sends time, encoded
-    sendTo sock datagram sa
+    let datagramPadded = BS.take 128 $ BS.append datagram (trash (BS.length datagram))
+
+    sendTo sock datagramPadded sa
     --send sock $ fromStrict datagram
     return ()
 
@@ -49,18 +58,16 @@ udp_handler udpPort = do
     sockServ <- getSockUDPServer udpPort
     forever $ do
         --(dados, sa) <- recvFrom sockServ 25
-        (dados, sa) <- recvFrom sockServ 25
+        (dados, sa) <- recvFrom sockServ 128
         putStrLn $ ("Recebido dados! Vindos de " ++ (show sa))
         let (SockAddrInet port host) = sa
-        --let (port, host) = fromSockAddr sa
         let h@(Header t s a d) = bs2header dados
         case getMessageType h of
             PROBE_REQUEST -> send_probe_response sockServ sa
-            REQUEST -> undefined
-
---fromSockAddr (SockAddrInet port host) = (port, host)
---fromSockAddr (SockAddrInet6 port _ host _ ) = (port, host)
---fromSockAddr (SockAddrUnix s) = error s
+            REQUEST -> do
+                let file_name = BS.take d $ BS.drop 25 dados
+                putStrLn $ "asked for a file " ++ (decode $ fromStrict file_name) ++ " what to heckl"
+                --send_func sa file_name
 
 
 
@@ -90,6 +97,7 @@ send_probe uuc@(UserConnection (Just (ip, port))) responses = do
     handle <- socketToHandle sock ReadMode
     (Header t s a d) <- readHeader handle
     resto <- BS.hGet handle d
+    hClose handle
     let tempo_after = (decode $ fromStrict resto) :: String
     atomically $ modifyTVar' responses (\k -> (uuc, (ProbeResponse {time = read tempo_after :: Double})):k)
     return ()

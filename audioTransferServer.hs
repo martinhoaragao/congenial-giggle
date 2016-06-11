@@ -4,14 +4,16 @@ import qualified Data.ByteString.Lazy.Char8     as BS
 import           Network.Socket                 hiding (recv, recvFrom, send,
                                                  sendTo)
 import           Network.Socket.ByteString.Lazy
+import           Network.Socket.ByteString as KEK
 import           Prelude                        hiding (getContents)
+import Data.ByteString.Lazy (fromStrict, toStrict)
 
 import           AudioTransferTypes
 import           Authentication
 import           Connection
 import           ConsultsResponses
 import           Data.Char                      (isDigit)
-import           Data.IP
+--import           Data.IP
 import           Data.Maybe
 
 type HandlerFunc = SockAddr -> String -> IO ()
@@ -83,7 +85,7 @@ sendFile users consultsResponses userConnected file_name connSock = do
   addConsult username consultsResponses
   connectedUsersAddr <- getConnectedUsersAddr users
   let consult = BS.pack . unwords $ ["consult", file_name, username]
-  mapM_ (`send` consult) connectedUsersAddr
+  mapM_ (`Network.Socket.ByteString.Lazy.send` consult) connectedUsersAddr
   threadDelay $ 1 * 1000 * 1000
   consultResponsesAddr <- getConsultResponses username consultsResponses
   let ifFound = if null consultResponsesAddr then "notfound" else "found"
@@ -98,7 +100,7 @@ sendFile users consultsResponses userConnected file_name connSock = do
   --enviar "response file_name wasFound nHosts host1 port1 host2 port2 host3 port3" a connSock
 
 deliver msg connSock = do
-  send connSock (BS.pack msg)
+  KEK.sendAll connSock (toStrict $ BS.pack  msg)
 
   return ()
 
