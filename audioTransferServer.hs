@@ -8,12 +8,12 @@ import           Network.Socket.ByteString as KEK
 import           Prelude                        hiding (getContents)
 import Data.ByteString.Lazy (fromStrict, toStrict)
 
-import           AudioTransferTypes
 import           Authentication
 import           Connection
 import           ConsultsResponses
 import           Data.Char                      (isDigit)
 --import           Data.IP
+
 import           Data.Maybe
 
 type HandlerFunc = SockAddr -> String -> IO ()
@@ -52,7 +52,7 @@ openConnection port handlerfunc = withSocketsDo $
           procRequests :: Users -> ConsultsResponses -> Socket -> IO ()
           procRequests users consultsResponses mastersock =
               do (connsock, clientAddr) <- accept mastersock
-                 handlerfunc clientAddr "Client connnected"
+                 handlerfunc clientAddr "Client connected"
                  forkIO $ procMessages users consultsResponses connsock clientAddr
                  procRequests users consultsResponses mastersock
 
