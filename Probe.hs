@@ -66,7 +66,7 @@ udp_handler udpPort = do
             REQUEST -> do
                 let file_name = BS.take d $ BS.drop 25 dados
                 putStrLn $ "asked for a file " ++ (decode $ fromStrict file_name) ++ " what to heckl"
-                --send_func sa file_name
+                send_func sa (decode $ fromStrict file_name)
 
 
 

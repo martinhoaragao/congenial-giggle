@@ -51,7 +51,7 @@ processOneMessage sock udpPort message = do
     putStrLn $ messageType ++ " " ++ file_name --consult musica.mp3
     case messageType of
       "consult"  -> processConsultRequest sock udpPort file_name username
-      "response" -> processConsultResponse sock msg
+      "response" -> processConsultResponse sock udpPort msg
 
 processConsultRequest :: Socket -> String -> String -> String -> IO ()
 processConsultRequest connection udpPort file_name username = do
@@ -65,8 +65,8 @@ processConsultRequest connection udpPort file_name username = do
 recoverAddrPair [] = []
 recoverAddrPair (addr:port:l) = (addr,port) : recoverAddrPair l
 
-processConsultResponse :: Socket -> [String] -> IO()
-processConsultResponse sockSend msg = do --undefined
+processConsultResponse :: Socket -> String -> [String] -> IO()
+processConsultResponse sockSend udpPort msg = do --undefined
      print msg
      let ([messageType, file_name, wasFound], hosts) = splitAt 3 msg
      let hostsAddr = recoverAddrPair hosts
@@ -78,7 +78,7 @@ processConsultResponse sockSend msg = do --undefined
          Nothing -> void (putStrLn "Não há utilizadores com ligação estável!")
          Just (UserConnection (Just (ip, port))) -> do
             send_file_request file_name ip port
-            --recv_func file_name
+            recv_func file_name udpPort
          --_ -> putStrLn "Yey Yupii!!!" --send_file_request file_name ip port
 
 

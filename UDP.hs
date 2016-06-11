@@ -92,7 +92,8 @@ sendPacket socket packet = withSocketsDo $ do
 send_func :: SockAddr -> String -> IO()
 send_func sockaddr ficheiro = withSocketsDo $ do
   (Just host, Just port) <- getNameInfo [NI_NOFQDN, NI_NUMERICHOST] True True sockaddr
-  socket <- getSockUDPClient host port
+  --socket <- getSockUDPClient host port
+  socket <- getSockUDPClient host "10514"
   f <- BS.readFile ficheiro
   let l = BS.length f
       list = oneList [1..] (separate f)
@@ -115,7 +116,8 @@ send_func sockaddr ficheiro = withSocketsDo $ do
 
 recv_func :: String -> String -> IO()
 recv_func ficheiro port = withSocketsDo $ do
-  socket <- getSockUDPServer port
+  --socket <- getSockUDPServer port
+  socket <- getSockUDPServer "10514"
   (_,lPacket) <- readPacket socket
   let l = (decode $ fromStrict lPacket) ::Int
   (_,nPacket) <- readPacket socket
