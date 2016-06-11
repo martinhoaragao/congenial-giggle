@@ -1,3 +1,5 @@
+module Server where
+
 import           Control.Concurrent
 import           Control.Monad
 import qualified Data.ByteString.Lazy.Char8     as BS

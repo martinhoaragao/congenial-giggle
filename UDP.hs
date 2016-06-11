@@ -9,8 +9,8 @@ import           Network.Socket.ByteString as NSB
 import           System.Random
 import           System.Timeout
 
-import           AudioTransferHeader
-import           AudioTransferTypes
+import           Header
+import           Types
 
 
 getSockUDPClient :: HostName -> String -> IO Socket

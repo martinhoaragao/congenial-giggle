@@ -1,6 +1,6 @@
 module ConsultsResponses where
 
-import           AudioTransferTypes
+import           Types
 import           Control.Concurrent.STM
 import qualified Data.Map               as DM
 import           Data.Maybe

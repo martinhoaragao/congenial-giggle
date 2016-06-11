@@ -1,4 +1,4 @@
-module AudioTransferTypes where
+module Types where
 
 packetSize :: Int
 packetSize = headerSize + dataSize

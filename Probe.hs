@@ -1,4 +1,4 @@
-module AudioTransferProbe where
+module Probe where
 import           Control.Concurrent             (forkIO, killThread,
                                                  threadDelay)
 import           Control.Concurrent.STM
@@ -16,9 +16,8 @@ import           Network.Socket.ByteString.Lazy
 import           System.IO
 import           Prelude hiding (cycle)
 
-import           AudioTransferHeader
-import           AudioTransferHeader
-import           AudioTransferTypes
+import           Header
+import           Types
 import           UDP
 
 trash n = toStrict $ Data.ByteString.Lazy.take (128 - (fromIntegral n)) $ cycle $ encode 'a'
@@ -33,7 +32,7 @@ send_file_request file_name ip port = do
     let datagramPadded = BS.take 128 $ BS.append datagram (trash (BS.length datagram))
     k <- send sock $ fromStrict datagramPadded
     putStr ("Asking for " ++ file_name)
-    putStrLn( " of size " ++ show (k)) 
+    putStrLn( " of size " ++ show (k))
     return ()
 
 --Answers a Probe Request with a timestamp

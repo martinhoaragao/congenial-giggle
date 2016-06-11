@@ -1,3 +1,5 @@
+module Client where
+
 import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.Trans
@@ -9,8 +11,8 @@ import           Network.Socket.ByteString.Lazy
 import           Prelude                        hiding (getContents)
 import           System.Directory
 
-import           AudioTransferProbe
-import           AudioTransferTypes
+import           Probe
+import           Types
 import           Connection
 import           UDP
 

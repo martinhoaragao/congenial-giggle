@@ -1,4 +1,4 @@
-module AudioTransferHeader where
+module Header where
 import qualified Data.ByteString as BS
 import Data.ByteString.Lazy (fromStrict, toStrict)
 import Data.Binary
@@ -6,7 +6,7 @@ import System.IO
 import Network.Socket hiding (recv)
 import Network.Socket.ByteString
 import GHC.IO.Handle
-import AudioTransferTypes
+import Types
 
 addHeader :: Header -> BS.ByteString -> BS.ByteString
 addHeader h b = BS.concat $ [t,s,a,d,b]
