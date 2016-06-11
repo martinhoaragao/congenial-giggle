@@ -89,6 +89,47 @@ sendPacket socket packet = withSocketsDo $ do
                   putStrLn "Client asked to resend!"
                   sendPacket socket packet
 
+send_func :: SockAddr -> String -> IO()
+send_func sockaddr ficheiro = withSocketsDo $ do
+  (Just host, Just port) <- getNameInfo [NI_NOFQDN, NI_NUMERICHOST] True True sockaddr
+  socket <- getSockUDPClient host port
+  f <- BS.readFile ficheiro
+  let l = BS.length f
+      list = oneList [1..] (separate f)
+      nPackets = length list
+      lbs = toStrict (encode (l::Int))
+      nbs = toStrict (encode (nPackets::Int))
+      headerL = Header '7' (-1) 0 (BS.length lbs)
+      headerN = Header '7' 0 0 (BS.length nbs)
+  headerToString headerL
+  sendPacket socket (addHeader headerL lbs)
+  headerToString headerN
+  sendPacket socket (addHeader headerN nbs)
+
+  let p = map (\(i,s) -> (addHeader (Header '7' i 0 dataSize) s)) list
+  mapM_ (sendPacket socket) p
+
+  putStrLn "File sent!"
+
+  close socket
+
+recv_func :: String -> String -> IO()
+recv_func ficheiro port = withSocketsDo $ do
+  socket <- getSockUDPServer port
+  (_,lPacket) <- readPacket socket
+  let l = (decode $ fromStrict lPacket) ::Int
+  (_,nPacket) <- readPacket socket
+  let n = (decode $ fromStrict nPacket) ::Int
+
+  list <- mapM (\i -> readPacket socket) [1..n]
+  let dt = sortBy sortP list
+      d = BS.concat (map snd dt)
+  BS.writeFile "out.mp3" d
+  putStrLn "Received and saved file!"
+
+  putStrLn $ "Data: " ++ show n ++ " packets (" ++ show l ++ " bytes)"
+  close socket
+
 testSend = withSocketsDo $ do
   socket <- getSockUDPClient "localhost" "10513"
   f <- BS.readFile "test.mp3"
