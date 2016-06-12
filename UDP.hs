@@ -126,7 +126,7 @@ recv_func ficheiro port = withSocketsDo $ do
   list <- mapM (\i -> readPacket socket) [1..n]
   let dt = sortBy sortP list
       d = BS.concat (map snd dt)
-  BS.writeFile "out.mp3" d
+  BS.writeFile ficheiro d
   putStrLn "Received and saved file!"
 
   putStrLn $ "Data: " ++ show n ++ " packets (" ++ show l ++ " bytes)"
