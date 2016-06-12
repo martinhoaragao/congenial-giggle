@@ -3,7 +3,7 @@ module ConsultsResponses where
 import           Control.Concurrent.STM
 import qualified Data.Map               as DM
 import           Data.Maybe
-
+import           GHC.Conc
 
 newtype ConsultsResponses = ConsultsResponses (TVar (DM.Map String [(String, String)]))
 
@@ -32,7 +32,10 @@ addConsultResponse consultsResponses username addr = atomically $
 addConsultResponseSTM :: String -> (String, String) -> ConsultsResponses -> STM ()
 addConsultResponseSTM username sockAddr (ConsultsResponses consultsResponsesSTM) = do
   consultsResponses <- readTVar consultsResponsesSTM
+  unsafeIOToSTM $ putStrLn "Merda 20"
+
   let consultResponses = fromJust $ DM.lookup username consultsResponses
+  unsafeIOToSTM $ putStrLn "Merda 21"
   writeTVar consultsResponsesSTM $ DM.insert username (sockAddr : consultResponses) consultsResponses
 
 
@@ -40,13 +43,17 @@ addConsultResponseSTM username sockAddr (ConsultsResponses consultsResponsesSTM)
 
 getConsultResponses username consultsResponses = atomically $ do
   consultResponses <- consultResponseSTM username consultsResponses
-  removeConsultSTM username consultsResponses
   return consultResponses
 
 consultResponseSTM :: String -> ConsultsResponses -> STM [(String, String)]
 consultResponseSTM username (ConsultsResponses consultsResponsesSTM) = do
   consultsResponses <- readTVar consultsResponsesSTM
-  return $ fromJust $ DM.lookup username consultsResponses
+  unsafeIOToSTM $ putStrLn "Merda 22"
+
+  let ok = fromJust $ DM.lookup username consultsResponses
+  unsafeIOToSTM $ putStrLn "Merda 23"
+  return ok
+
 
 -- Remove
 removeConsultSTM :: String -> ConsultsResponses -> STM ()
