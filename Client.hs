@@ -2,18 +2,16 @@ module Client where
 
 import           Control.Concurrent
 import           Control.Monad
-import           Control.Monad.Trans
 import qualified Data.ByteString.Lazy.Char8     as BS
-import           Data.Maybe                     (fromJust)
 import           Network.Socket                 hiding (recv, recvFrom, send,
                                                  sendTo)
 import           Network.Socket.ByteString.Lazy
 import           Prelude                        hiding (getContents)
 import           System.Directory
 
+import           Connection
 import           Probe
 import           Types
-import           Connection
 import           UDP
 
 
@@ -84,57 +82,14 @@ processConsultResponse sockSend udpPort msg = do --undefined
 
 audioTransfer sock msg = send sock (BS.pack msg)
 
-
-test1 = do
-  connection <- openConnection "127.0.0.1" "10514" "10515"
-  audioTransfer connection "register martinho 1234"
-  audioTransfer connection "login martinho 1234"
-  audioTransfer connection "data martinho I can now send message!"
-  audioTransfer connection "logout martinho 1234"
-  audioTransfer connection "data martinho Can I send message?"
-  audioTransfer connection "data martinho YES!"
-  close connection
-
-test2 = do
-  connection <- openConnection "127.0.0.1" "10514" "10515"
-  audioTransfer connection "register joaquim 1234"
-  audioTransfer connection "data joaquim Message after register!"
-  audioTransfer connection "logout joaquim 1234"
-  audioTransfer connection "data joaquim Message after logout!"
-  audioTransfer connection "login joaquim 1234"
-  audioTransfer connection "data joaquim Message after login!"
-  audioTransfer connection "logout joaquim 1234"
-  audioTransfer connection "data joaquim Message after logout!"
-  audioTransfer connection "login joaquim 4123"
-  audioTransfer connection "data joaquim Message after bad login!"
-  audioTransfer connection "logout joaquim 4123"
-  audioTransfer connection "data joaquim Message after bad logout!"
-  close connection
-
-test3 = do
-  connection <- openConnection "127.0.0.1" "10514" "10515"
-  audioTransfer connection "register martinho 1234"
-  audioTransfer connection "login martinho 1234"
-  audioTransfer connection "data martinho I can now send message!"
-  audioTransfer connection "logout martinho 1234"
-  audioTransfer connection "data martinho Can I send message?"
-  audioTransfer connection "data martinho YES!"
-  close connection
-
-test4 = do
-  connection <- openConnection "127.0.0.1" "10514" "10515"
-  audioTransfer connection "register martinho 1234"
-  audioTransfer connection "login martinho 1234"
-  audioTransfer connection "data martinho I can now send message!"
-  audioTransfer connection "download martinho test.mp3"
-  audioTransfer connection "logout martinho 1234"
-
-  close connection
-
 main = do
   putStrLn "Indique uma porta UDP do Cliente"
   udpPort <- getLine
-  connection <- openConnection "127.0.0.1" "10514" udpPort
+  putStrLn "Indique o endereço TCP do Server"
+  tcpAddress <- getLine
+  putStrLn "Indique a porta TCP do Server"
+  tcpPort <- getLine
+  connection <- openConnection tcpAddress tcpPort udpPort
   forever $ do
     text <- getLine
     audioTransfer connection text

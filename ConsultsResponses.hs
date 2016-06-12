@@ -1,6 +1,5 @@
 module ConsultsResponses where
 
-import           Types
 import           Control.Concurrent.STM
 import qualified Data.Map               as DM
 import           Data.Maybe
@@ -27,7 +26,7 @@ addConsultSTM username (ConsultsResponses consultsResponsesSTM) = do
   consultsResponses <- readTVar consultsResponsesSTM
   writeTVar consultsResponsesSTM $ DM.insert username [] consultsResponses
 
-addConsultResponse username addr consultsResponses = atomically $
+addConsultResponse consultsResponses username addr = atomically $
   addConsultResponseSTM username addr consultsResponses
 
 addConsultResponseSTM :: String -> (String, String) -> ConsultsResponses -> STM ()
