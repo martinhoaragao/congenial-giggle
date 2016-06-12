@@ -118,9 +118,7 @@ openConnection port superAddress superPort handlerfunc = withSocketsDo $
               "delete"    -> when loggedIn $ deleteUser userConnected users
               "logout"    -> when loggedIn $ logOutUser userConnected users
               "download"  -> when loggedIn $ sendFile users consultsResponses userConnected file_name connSock sockSuperServer
-              "response"  -> do putStrLn "Merda9"
-                                addConsultResponse consultsResponses usernm (fromJust host, msg !! 2)
-                                putStrLn "Merda10"
+              "response"  -> addConsultResponse consultsResponses usernm (fromJust host, msg !! 2)
               _ -> return ()
 
 consultClients users file_name username = do
@@ -148,23 +146,11 @@ sendFile users consultsResponses userConnected file_name connSock sockSuperServe
     let reply = ["download", file_name, show serverName ++ username]
     deliver (unwords reply) sockSuperServer
     threadDelay $ 5 * 1000 * 1000
-  putStrLn "Merda"
   consultResponses <- getConsultResponses username consultsResponses
-  putStrLn "Merda2"
-
   let ifFound = if null consultResponses then "notfound" else "found"
-  putStrLn "Merda3"
-
   let reply = ["response", file_name, ifFound] ++ concatMap (\(addr, port) -> [addr, port]) consultResponses
-  print reply
-  putStrLn "Merda4"
-
   deliver (unwords reply) connSock
-  putStrLn "Merda5"
-
   print reply
-  putStrLn "Merda6"
-
   return ()
 
 recoverAddrPair [] = []

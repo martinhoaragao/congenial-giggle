@@ -32,12 +32,8 @@ addConsultResponse consultsResponses username addr = atomically $
 addConsultResponseSTM :: String -> (String, String) -> ConsultsResponses -> STM ()
 addConsultResponseSTM username sockAddr (ConsultsResponses consultsResponsesSTM) = do
   consultsResponses <- readTVar consultsResponsesSTM
-  unsafeIOToSTM $ putStrLn "Merda 20"
-
   let consultResponses = fromJust $ DM.lookup username consultsResponses
-  unsafeIOToSTM $ putStrLn "Merda 21"
   writeTVar consultsResponsesSTM $ DM.insert username (sockAddr : consultResponses) consultsResponses
-
 
 -- Deliver Data
 
@@ -48,10 +44,7 @@ getConsultResponses username consultsResponses = atomically $ do
 consultResponseSTM :: String -> ConsultsResponses -> STM [(String, String)]
 consultResponseSTM username (ConsultsResponses consultsResponsesSTM) = do
   consultsResponses <- readTVar consultsResponsesSTM
-  unsafeIOToSTM $ putStrLn "Merda 22"
-
   let ok = fromJust $ DM.lookup username consultsResponses
-  unsafeIOToSTM $ putStrLn "Merda 23"
   return ok
 
 
