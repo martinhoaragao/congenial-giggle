@@ -3,7 +3,6 @@ module ConsultsResponses where
 import           Control.Concurrent.STM
 import qualified Data.Map               as DM
 import           Data.Maybe
-import           GHC.Conc
 
 newtype ConsultsResponses = ConsultsResponses (TVar (DM.Map String [(String, String)]))
 
@@ -37,9 +36,7 @@ addConsultResponseSTM username sockAddr (ConsultsResponses consultsResponsesSTM)
 
 -- Deliver Data
 
-getConsultResponses username consultsResponses = atomically $ do
-  consultResponses <- consultResponseSTM username consultsResponses
-  return consultResponses
+getConsultResponses username consultsResponses = atomically $ consultResponseSTM username consultsResponses
 
 consultResponseSTM :: String -> ConsultsResponses -> STM [(String, String)]
 consultResponseSTM username (ConsultsResponses consultsResponsesSTM) = do

@@ -79,7 +79,7 @@ openConnection port superAddress superPort handlerfunc = withSocketsDo $
             let [messageType, file_name, usernm] = take 3 msg
             let responses = recoverAddrPair . drop 3 $ msg
             serverName <- getSocketName sockSuperServer
-            let username = drop (length(show serverName)) $ usernm
+            let username = drop (length(show serverName)) usernm
             putStrLn $ messageType ++" " ++ usernm ++ " " ++ username
             case messageType of
               "consult" -> consultToSuper users consultsResponses file_name usernm sockSuperServer
